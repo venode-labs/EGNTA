@@ -38,8 +38,10 @@ def main() -> int:
     def capture(system, user, model, api_key, timeout):
         sent["user"] = user
         sent["system"] = system
-        return json.dumps({"root_cause": "rc", "confidence": 0.8,
-                           "artifacts": [{"type": "lesson", "title": "t", "rationale": "r", "body": "b"}]})
+        # Response wrapped in a markdown fence: the tolerant parser must still read it.
+        return ("```json\n" + json.dumps({"root_cause": "rc", "confidence": 0.8,
+                "artifacts": [{"type": "lesson", "title": "t", "rationale": "r", "body": "b"}]})
+                + "\n```", {"input_tokens": 10, "output_tokens": 5})
 
     D._call_claude = capture
     sess = _session("my key is sk-ant-api03-LEAKEDAAAA1111BBBB2222CCCC use it")
@@ -51,7 +53,11 @@ def main() -> int:
         fails.append("sent prompt has no redaction marker")
     if not (finding["status"] == "ok" and finding["root_cause"] == "rc"
             and finding["confidence"] == 0.8 and len(finding["artifacts"]) == 1):
-        fails.append(f"finding shape wrong: {finding}")
+        fails.append(f"fenced-json finding shape wrong: {finding}")
+    if finding.get("usage", {}).get("input_tokens") != 10:
+        fails.append(f"usage not captured for cost tracking: {finding.get('usage')}")
+    if "instruction" not in sent.get("system", "").lower():
+        fails.append("system prompt does not spotlight excerpts as data not instructions")
 
     # 2. Tripwire: simulate the first redaction pass MISSING a secret. analyse
     # must re-scan, see it, and refuse to send.
@@ -79,7 +85,7 @@ def main() -> int:
         fails.append("did not escalate a recurring signal")
 
     # 4. Artifact cleaning: unknown type dropped, list capped at 3.
-    D._call_claude = lambda *a, **k: json.dumps({
+    D._call_claude = lambda *a, **k: (json.dumps({
         "root_cause": "x", "confidence": 5,  # out of range -> clamped to 1.0
         "artifacts": [
             {"type": "script", "title": "a", "body": "b"},
@@ -87,7 +93,7 @@ def main() -> int:
             {"type": "skill", "title": "c", "body": "d"},
             {"type": "lesson", "title": "e", "body": "f"},
             {"type": "training", "title": "g", "body": "h"},  # over cap of 3
-        ]})
+        ]}), {})
     finding = D.analyse([_session("clean message")], [{"id": "s1", "salience": 0.9}], api_key="k")
     if finding["confidence"] != 1.0:
         fails.append(f"confidence not clamped: {finding['confidence']}")
