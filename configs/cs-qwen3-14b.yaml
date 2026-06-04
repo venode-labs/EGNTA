@@ -1,0 +1,38 @@
+# Coding + cyber-security specialisation of Qwen3-14B via QLoRA.
+# Runs on a rented GPU (one A100/H100 class) through scripts/train.py, or HF Jobs.
+# The dataset is assembled first: python scripts/collect_dataset.py configs/datasets.coding-security.yaml
+
+run_name: cs-qwen3-14b-v1
+
+model:
+  # Verify the exact HF id before a run; use the instruct variant of Qwen3-14B.
+  name: Qwen/Qwen3-14B
+  max_length: 4096
+  load_in_4bit: true
+  chat_template: null
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+dataset:
+  source: datasets/processed/cs-train.jsonl
+  split: train
+  limit: null
+
+train:
+  per_device_batch_size: 1
+  gradient_accumulation_steps: 16   # effective batch 16
+  warmup_steps: 20
+  max_steps: 200                    # ~2.5 epochs over ~1.2k rows; raise as the set grows
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  logging_steps: 5
+  save_steps: 50
+  seed: 3407
+  precision: auto
+  optim: adamw_8bit
+  packing: false
+  report_to: none                   # switch to trackio to log the run and eval deltas

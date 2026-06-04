@@ -35,18 +35,18 @@ sources:
 
   # --- A. agent trajectories, the core, GATED on redaction ---
   - name: claude-code-sessions
-    enabled: false
+    enabled: true
     type: local_jsonl
-    path: ~/clilogs/claude-logs/sessions/
+    path: datasets/processed/cs-traj-claude.jsonl
     license: internal
-    notes: GATED. 16M real tool-use. Must pass observer/redactor.py then a transcript->messages converter. The highest-value source.
+    notes: 11 real tool-use trajectories, redacted via scripts/convert_transcripts.py and audit-clean. Re-run the converter to refresh from ~/clilogs/claude-logs/sessions/.
 
   - name: codex-rollouts
     enabled: false
     type: local_jsonl
-    path: ~/.codex/sessions/
+    path: datasets/processed/cs-traj-codex.jsonl
     license: internal
-    notes: GATED. Codex CLI rollouts, same redact-then-convert path as claude-code-sessions.
+    notes: GATED. Codex rollout schema differs from Claude Code, the CC converter yields 0 rows. Needs a codex-specific converter before this is enabled.
 
   # --- C. curated lessons, GATED on a lesson->instruction converter ---
   - name: repo-lessons

@@ -46,10 +46,14 @@ def main() -> None:
     assert "[REDACTED:anthropic-key]" in blob, "planted key was not redacted"
     assert "STANDING RULE" not in blob, "injected system-reminder survived"
     roles = [m["role"] for m in rows[0]["messages"]]
-    assert {"user", "assistant", "tool"} <= set(roles), f"missing roles, got {roles}"
+    assert {"user", "assistant"} <= set(roles), f"missing roles, got {roles}"
+    assert "tool" not in roles, "tool role must fold into user, the trainer rejects it"
+    assert "[tool result] build ok" in blob, "tool result not folded into a user turn"
     assert "run_shell" in blob, "tool call was not captured into the assistant turn"
+    assert all(roles[i] != roles[i + 1] for i in range(len(roles) - 1)), f"non-alternating roles: {roles}"
+    assert roles[-1] == "assistant", "SFT trajectory must end on an assistant turn"
 
-    print("PASS: convert redacts the planted key, drops injected noise, keeps user/assistant/tool turns")
+    print("PASS: convert redacts the planted key, drops injected noise, folds tool turns, alternates, ends assistant")
 
 
 if __name__ == "__main__":

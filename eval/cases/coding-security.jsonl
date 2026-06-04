@@ -1,0 +1,18 @@
+{"prompt": "In one line, what Python slice reverses a string s?", "expect_contains": ["[::-1]"]}
+{"prompt": "Write a Python function is_even(n) that returns True for even numbers. Reply with code only.", "expect_contains": ["def is_even", "% 2"]}
+{"prompt": "What HTTP response header mitigates clickjacking? Name it.", "expect_contains": ["x-frame-options"]}
+{"prompt": "What is the correct defence against SQL injection in application code?", "expect_contains": ["parameter"]}
+{"prompt": "Name the OWASP Top 10 category that covers SQL injection and command injection.", "expect_contains": ["injection"]}
+{"prompt": "Which password hashing algorithm should a new web app use: MD5, SHA-1, or bcrypt?", "expect_contains": ["bcrypt"]}
+{"prompt": "What git command shows the working tree status?", "expect_contains": ["git status"]}
+{"prompt": "Write a regex that matches a basic email address. Reply with the regex only.", "expect_contains": ["@", "+"]}
+{"prompt": "In a Dockerfile, which instruction sets the base image?", "expect_contains": ["FROM"]}
+{"prompt": "What HTTP status code means Unauthorized?", "expect_contains": ["401"]}
+{"prompt": "Name a tool for fast network port scanning.", "expect_contains": ["nmap"]}
+{"prompt": "What does the Sigma detection rule format describe, and what file format is it written in?", "expect_contains": ["yaml"]}
+{"prompt": "Write a one-line bash command to find files modified in the last day under the current directory.", "expect_contains": ["find", "-mtime"]}
+{"prompt": "What cryptographic property is broken when a hash function produces the same digest for two different inputs?", "expect_contains": ["collision"]}
+{"prompt": "Which header enforces HTTPS for future requests to a site?", "expect_contains": ["strict-transport-security"]}
+{"prompt": "Write a Python list comprehension that squares the numbers 0 to 4. Code only.", "expect_contains": ["for", "range", "**2"]}
+{"prompt": "What is the standard mitigation for cross-site request forgery in a form-based web app?", "expect_contains": ["token"]}
+{"prompt": "Name the MITRE framework that catalogues adversary tactics and techniques.", "expect_contains": ["att&ck"]}

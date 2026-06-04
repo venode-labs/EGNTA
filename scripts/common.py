@@ -12,7 +12,7 @@ def repo_root() -> Path:
 
 
 def resolve_path(path: str | Path) -> Path:
-    p = Path(path)
+    p = Path(path).expanduser()  # honour ~ in config paths
     if p.is_absolute():
         return p
     return repo_root() / p

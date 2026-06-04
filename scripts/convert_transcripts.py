@@ -91,15 +91,39 @@ def transcript_to_messages(path: pathlib.Path) -> list[dict]:
                 if isinstance(b, dict) and b.get("type") == "tool_result"
             ]
             if results:
+                # Tool results fold into a user turn with a marker, so the row stays
+                # within system/user/assistant roles the trainer validates and the
+                # chat template handles. The tool call itself is already serialised
+                # into the preceding assistant turn.
                 for b in results:
                     rc = b.get("content", "")
                     rc = rc if isinstance(rc, str) else _flatten_text(rc)
                     if rc.strip():
-                        msgs.append({"role": "tool", "content": rc.strip()[:4000]})
+                        msgs.append({"role": "user", "content": f"[tool result] {rc.strip()[:4000]}"})
             else:
                 text = _flatten_text(content).strip()
                 if text and not _is_injected(text):
                     msgs.append({"role": "user", "content": text})
+    return _trim_to_assistant_end(_merge_consecutive(msgs))
+
+
+def _merge_consecutive(msgs: list[dict]) -> list[dict]:
+    """Collapse consecutive same-role turns into one, so the trajectory alternates
+    user and assistant and templates cleanly."""
+    merged: list[dict] = []
+    for m in msgs:
+        if merged and merged[-1]["role"] == m["role"]:
+            merged[-1]["content"] += "\n" + m["content"]
+        else:
+            merged.append(dict(m))
+    return merged
+
+
+def _trim_to_assistant_end(msgs: list[dict]) -> list[dict]:
+    """SFT trains on the assistant's reply, so the trajectory must end on an
+    assistant turn. Drop a trailing user or tool-result turn that has no reply."""
+    while msgs and msgs[-1]["role"] != "assistant":
+        msgs.pop()
     return msgs
 
 
