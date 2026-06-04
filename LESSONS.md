@@ -4,6 +4,32 @@ Dev lessons from building Egenta itself. Distinct from `lessons/LESSONS.md`,
 which is Egenta's learned rules about the Claude sessions it observes. Newest
 first.
 
+## 2026-06-04 — converter output must satisfy the trainer's contract
+
+**What broke.** Assembling the coding-security set rejected all 11 transcript
+trajectories. Three separate causes surfaced only by running collect_dataset:
+(1) `resolve_path` did not expand `~`, so a `~/github/...` source path became
+`Egenta/~/github/...` and failed; (2) the trainer's `normalize_messages` allows
+only system/user/assistant roles, so the converter's `tool` role rows were all
+marked `bad`; (3) one trajectory ended on a tool result, but SFT requires the
+last turn to be the assistant.
+
+**Root cause.** The converter was written to a sensible-looking shape without
+checking the exact contract the trainer enforces. A transcript is not training
+data until it validates against the same `normalize_messages` the trainer runs.
+
+**Fix.** `resolve_path` now `expanduser()`s. The converter folds tool results into
+user turns with a `[tool result]` marker, merges consecutive same-role turns, and
+trims any trailing non-assistant turn. All 11 trajectories now ingest.
+
+**Guard.** `scripts/test_convert.py` asserts the contract: no tool role,
+alternating turns, ends on assistant, planted secret redacted, injected noise
+dropped. A future converter change that breaks the trainer contract fails it.
+
+**General rule.** When producing training data, validate every row against the
+exact `normalize_messages`/role/alternation/end-on-assistant contract the trainer
+enforces, before declaring it ready. Run the assembler, do not eyeball the shape.
+
 ## 2026-06-04
 
 - **'user' role does not mean a human turn.** The Phase 1 parser counted skill
