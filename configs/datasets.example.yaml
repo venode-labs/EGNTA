@@ -1,0 +1,23 @@
+output:
+  train_path: datasets/processed/train.jsonl
+  eval_path: datasets/processed/eval.jsonl
+  eval_fraction: 0.02
+  seed: 3407
+  max_total_records: null
+
+sources:
+  - name: smoke-local
+    enabled: true
+    type: local_jsonl
+    path: datasets/samples/smoke.jsonl
+    license: internal-example
+    notes: Small local sample for pipeline validation only.
+
+  - name: no-robots-example
+    enabled: false
+    type: hf
+    path: HuggingFaceH4/no_robots
+    split: train_sft
+    limit: 2000
+    license: check-dataset-card-before-enabling
+    notes: Disabled until source license and intended use are verified.

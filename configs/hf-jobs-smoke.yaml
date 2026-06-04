@@ -1,0 +1,42 @@
+run_name: smoke-001
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  max_length: 1024
+  load_in_4bit: true
+  chat_template: null
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+dataset:
+  source: datasets/samples/smoke.jsonl
+  split: train
+  limit: null
+
+train:
+  per_device_batch_size: 1
+  gradient_accumulation_steps: 1
+  warmup_steps: 1
+  max_steps: 5
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  logging_steps: 1
+  save_steps: 5
+  seed: 3407
+  precision: auto
+  optim: adamw_8bit
+  packing: false
+  report_to: trackio
+  project: venode-egenta
+  run_name: smoke-001
+  trackio_space_id: venode/trackio
+
+hub:
+  push_to_hub: true
+  model_id: venode/egenta-smoke-001
+  strategy: every_save
+  private: false

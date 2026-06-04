@@ -1,0 +1,32 @@
+[Unit]
+Description=Egenta, always-on observer of Claude Code sessions
+Documentation=file:///home/keletonik/Egenta/README.md
+After=default.target
+
+[Service]
+Type=simple
+# Single instance; the entrypoint takes its own lock as a second guard.
+ExecStart=/usr/bin/env -S uv run --project %h/Egenta python %h/Egenta/observer/egenta.py
+WorkingDirectory=%h/Egenta
+Restart=on-failure
+RestartSec=5
+# Resident but cheap. Cap it so a runaway analysis cannot eat the box.
+MemoryMax=2G
+CPUWeight=20
+# Hardening: Egenta only ever writes inside its own home and reads the logs.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=%h/Egenta
+ReadOnlyPaths=%h/clilogs %h/.claude
+
+[Install]
+WantedBy=default.target
+
+# Install when the entrypoint exists:
+#   ln -s ~/Egenta/observer/egenta.service ~/.config/systemd/user/egenta.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now egenta.service
+# Uninstall:
+#   systemctl --user disable --now egenta.service
+#   rm ~/.config/systemd/user/egenta.service && systemctl --user daemon-reload

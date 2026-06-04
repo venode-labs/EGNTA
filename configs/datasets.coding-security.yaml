@@ -1,0 +1,57 @@
+# Dataset assembly for the coding + cyber-security specialisation of Qwen3-14B.
+# Consumed by scripts/collect_dataset.py. Sources map to DATA-CATALOGUE.md.
+# Enabled sources are clean and ingest now; disabled ones are gated on the
+# redactor (Phase 3) or a converter, and carry a note saying why.
+
+output:
+  train_path: datasets/processed/cs-train.jsonl
+  eval_path: datasets/processed/cs-eval.jsonl
+  eval_fraction: 0.05
+  seed: 3407
+  max_total_records: null
+
+sources:
+  # --- B. ready instruction / QA data ---
+  - name: algorithmic-sft
+    enabled: true
+    type: local_jsonl
+    path: ~/github/Algorithmitic-Data-/datasets/sft.jsonl
+    license: verify-repo-licence-before-train
+    notes: 1228 instruction/output rows, maths/ML/LLM/agents/prompt-eng. Knowledge, not agentic.
+
+  - name: algorithmic-qa
+    enabled: false
+    type: local_jsonl
+    path: ~/github/Algorithmitic-Data-/datasets/qa.jsonl
+    license: verify-repo-licence-before-train
+    notes: 1095 QA rows. Enable once the SFT set is proven not to overfit.
+
+  - name: hugo-voice
+    enabled: true
+    type: local_jsonl
+    path: ~/hugo/training/datasets/hugo-voice-handwritten.jsonl
+    license: internal
+    notes: 27 handwritten venode-voice messages. Small, keeps house style.
+
+  # --- A. agent trajectories, the core, GATED on redaction ---
+  - name: claude-code-sessions
+    enabled: false
+    type: local_jsonl
+    path: ~/clilogs/claude-logs/sessions/
+    license: internal
+    notes: GATED. 16M real tool-use. Must pass observer/redactor.py then a transcript->messages converter. The highest-value source.
+
+  - name: codex-rollouts
+    enabled: false
+    type: local_jsonl
+    path: ~/.codex/sessions/
+    license: internal
+    notes: GATED. Codex CLI rollouts, same redact-then-convert path as claude-code-sessions.
+
+  # --- C. curated lessons, GATED on a lesson->instruction converter ---
+  - name: repo-lessons
+    enabled: false
+    type: local_jsonl
+    path: datasets/processed/lessons.jsonl
+    license: internal
+    notes: GATED. 8 LESSONS.md across repos, convert defect-and-fix entries to instruction pairs first.
