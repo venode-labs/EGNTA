@@ -83,7 +83,10 @@ def main() -> int:
         checks = {
             "session_id parsed": bool(s.session_id),
             "events counted": s.n_events > 0,
-            "assistant messages present": s.n_assistant_msgs > 0,
+            # Not every real session has an assistant turn (an interrupted one
+            # has none). The true invariant: tool uses only come from assistant
+            # turns, so any tool use implies at least one assistant message.
+            "tool uses imply assistant turns": s.n_assistant_msgs > 0 or s.n_tool_uses == 0,
             "tool_uses consistent": s.n_tool_uses == sum(s.tool_counts.values()),
             "events list populated": len(s.events) > 0,
             "user_messages are strings": all(isinstance(x, str) for x in s.user_messages),

@@ -48,3 +48,14 @@ first.
   (a bogus model gives a 404 then a `pending` record, no crash), added a non-JSON
   test, and collapse whitespace in `notes`. Lesson: exercise the failure branch
   you wrote, an untested except clause is a guess.
+
+## 2026-06-04 (observer completion)
+
+- **test_transcript ran against live ~/clilogs data, so a new interrupted session broke it.**
+  The Phase-1 eval parses every real captured transcript and asserted `assistant messages present`
+  on each. A 13-event session that ended before the assistant replied (1 user message, 0 assistant)
+  failed it. Root cause: the assertion encoded a false invariant; a real session can have no
+  assistant turn. Fix: assert the true parser invariant instead, tool uses only come from assistant
+  turns, so `n_assistant_msgs > 0 or n_tool_uses == 0`. Guard: the invariant holds for every real
+  session including interrupted ones. Live-data evals stay non-deterministic, so their assertions
+  must be invariants, not assumptions about typical content.
