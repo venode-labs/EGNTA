@@ -4,6 +4,11 @@ The rename and the system prompt are done. This is the order to build the agent
 itself. Each phase is shippable on its own and leaves the repo in a working
 state.
 
+Status (04/06/2026): Phases 1 through 6 are SHIPPED, the observer is complete and
+always-on capable, redactor, deep brain, write gate and proposal queue, and the
+daemon, each with a passing eval in `observer/test_*.py`. Phase 7 (training arm)
+stays deferred. The per-phase notes below describe the design and remain accurate.
+
 ## Phase 1, capture and cursor  [DONE 04/06/2026]
 
 - `observer/egenta.py` entrypoint: takes a lock, reads a cursor file, finds

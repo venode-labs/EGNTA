@@ -6,19 +6,23 @@ After=default.target
 [Service]
 Type=simple
 # Single instance; the entrypoint takes its own lock as a second guard.
-ExecStart=/usr/bin/env -S uv run --project %h/Egenta python %h/Egenta/observer/egenta.py
+# Stdlib only, so plain python3 needs no uv and no virtualenv. --daemon is the
+# resident sweep loop; the deep brain stays dormant until ANTHROPIC_API_KEY is set.
+ExecStart=/usr/bin/python3 %h/Egenta/observer/egenta.py --daemon --poll 120
 WorkingDirectory=%h/Egenta
 Restart=on-failure
 RestartSec=5
 # Resident but cheap. Cap it so a runaway analysis cannot eat the box.
 MemoryMax=2G
 CPUWeight=20
-# Hardening: Egenta only ever writes inside its own home and reads the logs.
+# Hardening: home is read-only except Egenta's own tree and its XDG state dir
+# (the cursor and lock). It reads the session logs, writes nowhere else. The
+# write gate, not the kernel, is what keeps the daemon out of ~/.claude.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=%h/Egenta
-ReadOnlyPaths=%h/clilogs %h/.claude
+ProtectHome=read-only
+ReadWritePaths=%h/Egenta %h/.local/state
 
 [Install]
 WantedBy=default.target
