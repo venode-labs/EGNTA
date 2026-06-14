@@ -85,3 +85,14 @@ enforces, before declaring it ready. Run the assembler, do not eyeball the shape
   turns, so `n_assistant_msgs > 0 or n_tool_uses == 0`. Guard: the invariant holds for every real
   session including interrupted ones. Live-data evals stay non-deterministic, so their assertions
   must be invariants, not assumptions about typical content.
+
+## 15/06/2026, discovery accelerator eval: relative-improvement metrics are flattered by a strong baseline
+- **What happened:** on the easy 4-defect corpus, Egenta scored REL 1.0 vs a naive single-LLM, which looked like a clean 50%+ win. It was an artefact: the baseline was near ceiling (F1 0.889) so the tiny absolute gain (+0.111) inflated to REL 1.0.
+- **Root cause:** relative error reduction (F1_e - F1_b)/(1 - F1_b) has a vanishing denominator against a strong baseline, so a near-zero absolute gain reads as a huge ratio.
+- **Fix:** the runner prints abs_f1_delta_gated next to REL; a HELD-OUT defect (a second bottleneck the deterministic miner cannot report) was added to make detection-F1 discriminating. On that corpus the honest result is REL 0.444 (target NOT met).
+- **Guard:** EVAL-METHOD.md pre-registers the metric, reports absolute delta + gated/ungated, and forbids the "50% better" claim without the held-out corpus. Never headline a ratio metric without its absolute delta and a held-out test.
+
+## 15/06/2026, single-pass LLM synthesis cannot cleanly resolve the precision/recall tradeoff by prompting
+- **What happened:** told to flag all standout bottlenecks, the synthesis caught the held-out defect (recall 1.0) but over-flagged (precision 0.71, F1 below baseline); tightened to "2x median", it went precise (P 1.0) but missed the held-out (recall 0.8). Neither cleared 50%.
+- **Root cause:** prompt tuning trades precision for recall on a tool-less single pass; it cannot reliably do both on held-out defects.
+- **Guard:** stop tuning against an in-house answer key (grade-your-own-homework). Reliable held-out detection needs a conformance-based detector or multi-pass synthesis, logged as the real next step, not a tuning knob.
