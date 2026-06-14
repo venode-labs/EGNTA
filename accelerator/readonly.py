@@ -1,13 +1,15 @@
 """Read-only enforcement.
 
-Honest accounting: of the five defence-in-depth layers in the architecture, THREE
-are enforceable in code today and live here, the SELECT-only SQL guard, the
-read-only tool-call guard (the shape of the Claude Agent SDK PreToolUse hook), and
-the egress allowlist policy (write-verb and host decision function, enforced wherever
-egress is routed through it). The other two (client read-only OAuth scopes, which
-need a live OAuth provider, and per-engagement network isolation, which needs infra)
-are explicit stubs below, raising rather than pretending. Counting them as "done"
-before they exist would be the dishonest move, so they raise NotImplementedError.
+Honest accounting: of the five defence-in-depth layers in the architecture, TWO are
+actively enforced on the live code path, the SELECT-only SQL guard and the read-only
+tool-call guard (the shape of the Claude Agent SDK PreToolUse hook). A third, the
+egress allowlist policy below, is implemented and unit-tested as a decision function
+but is NOT yet on a live path: the only connector today is file-based (no egress), so
+nothing routes through it until the first live-HTTP connector exists. It gates client
+source egress (GET-only, allowlisted hosts), not the engine's own model API call. The
+remaining two (client read-only OAuth scopes, which need a live OAuth provider, and
+per-engagement network isolation, which needs infra) are explicit stubs that raise
+rather than pretend. Counting an unbuilt layer as "done" would be the dishonest move.
 """
 from __future__ import annotations
 
@@ -68,10 +70,11 @@ _DEFAULT_EGRESS_ALLOWLIST = frozenset({"api.anthropic.com"})
 
 def egress_allowlist_check(host: str, method: str,
                            allowlist: frozenset = _DEFAULT_EGRESS_ALLOWLIST) -> None:
-    """Enforce read-only, allowlisted egress: raise ReadOnlyViolation on a write HTTP
-    verb or a host outside the allowlist. This is the decision function, enforced
-    wherever egress is routed through it; wiring it into a forward proxy at deploy time
-    is what makes it network-level. Enforced layer 3 (was a stub)."""
+    """Read-only client-source egress policy: raise ReadOnlyViolation on a write HTTP
+    verb or a host outside the allowlist. This is the decision function (layer 3),
+    implemented and tested; it becomes active when a live-HTTP connector routes its
+    egress through it, and a forward proxy at deploy time makes it network-level. It
+    gates client source reads, not the engine's own POST to the model API."""
     if (method or "").upper() not in _READ_HTTP:
         raise ReadOnlyViolation(f"egress write verb refused: {method!r}")
     if host not in allowlist:

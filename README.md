@@ -76,10 +76,11 @@ flowchart LR
   S --> R[Prioritised pain register and recommendations]
 ```
 
-Read-only is defence in depth: a SELECT-only warehouse role, a read-only tool guard,
-and the egress allowlist policy are enforced today; client OAuth scopes and
-per-engagement network isolation are documented stubs that raise rather than pretend.
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Read-only is defence in depth: a SELECT-only warehouse role and a read-only tool guard
+are actively enforced on the code path; the egress allowlist is implemented and tested,
+ready for the first live-HTTP connector (the current connector is file-based, so nothing
+routes through it yet); client OAuth scopes and per-engagement network isolation are
+documented stubs that raise rather than pretend. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Quickstart
 
@@ -136,7 +137,7 @@ detector for is open work, not a claim.
 - [x] Grounded Claude synthesis and the real-LLM benchmark
 - [x] Trades vertical pack (nine domain detectors incl cross-source) and a rotating held-out
 - [x] Read-only CSV/JSON export connector + core validated on a real public log
-- [x] Plain-language pain-register report; egress allowlist enforced (3 of 5 read-only layers)
+- [x] Plain-language pain-register report; egress allowlist policy implemented and tested
 - [ ] Live read-only API connector to a field-service platform (needs client OAuth)
 - [ ] Entity-resolution detector for the duplicate-invoice held-out class
 - [ ] Postgres backend, OAuth-scope enforcement, model-based name/address PII pass

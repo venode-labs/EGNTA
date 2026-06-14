@@ -4,6 +4,26 @@ Dev lessons from building EGNTA itself. Distinct from `lessons/LESSONS.md`,
 which is EGNTA's learned rules about the Claude sessions it observes. Newest
 first.
 
+## 15/06/2026, "enforced" means on a live code path, not "implemented and tested"
+
+**What broke.** Wrote that the egress allowlist was an "enforced" read-only layer (3 of
+5), the same week I overclaimed a precision number. The function is real and tested, but
+nothing calls it at runtime: the only connector is file-based, so no egress routes through
+it, and the engine's own model API call is a legitimate POST to an allowlisted host that
+the check would wrongly refuse. "Enforced" overclaimed parity with the SQL and tool
+guards, which are actually on the code path.
+
+**Root cause.** Conflating "the policy function exists and passes tests" with "the policy
+guards live traffic". A tested decision function with no call site is not enforcement.
+
+**Fix.** Reworded readonly.py, README and ARCHITECTURE to "two actively enforced on the
+code path, one implemented-and-tested policy awaiting the first live-HTTP connector, two
+stubs". Did NOT wire it into the LLM client, that would wrongly block the legitimate POST.
+
+**Guard.** Standing rule: claim a control is "enforced" only when there is a runtime call
+site that exercises it; a tested-but-uncalled policy is "implemented and tested", not
+enforced. Pairs with the precision lesson below: verify the claim, do not round it up.
+
 ## 15/06/2026, a bottleneck detector must not pool sub-flow transitions
 
 **What broke.** The trades dispatch-bottleneck detector ran over every transition in

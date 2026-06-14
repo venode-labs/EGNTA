@@ -54,17 +54,20 @@ Apromore, ProM) do not attempt.
 
 ## Read-only enforcement
 
-Five defence-in-depth layers are designed. Three are enforced in code today:
+Five defence-in-depth layers are designed. Two are actively enforced on the code path:
 
 1. **SELECT-only warehouse handle** (`warehouse.connect(read_only=True)`, `PRAGMA
    query_only`). Writes raise. Tested.
 2. **Read-only tool guard** (`readonly.read_only_tool_guard`, the shape of the
    Claude Agent SDK PreToolUse hook): denies write HTTP verbs, non-SELECT SQL,
    and any mutating tool, default-deny on unknown. Tested.
+
+A third is implemented and tested but not yet on a live path:
+
 3. **Egress allowlist policy** (`readonly.egress_allowlist_check`): the decision
-   function that refuses a write HTTP verb or a non-allowlisted host. Enforced
-   wherever egress is routed through it; the forward-proxy wiring is the deploy step.
-   Tested.
+   function that refuses a write HTTP verb or a non-allowlisted host for client-source
+   egress. It becomes active when a live-HTTP connector routes through it; the only
+   connector today is file-based, so nothing routes through it yet. Tested.
 
 Two require live infrastructure and are explicit stubs that raise rather than
 pretend (`readonly.require_readonly_oauth_scope`):
@@ -72,7 +75,7 @@ pretend (`readonly.require_readonly_oauth_scope`):
 4. Client read-only OAuth scopes per connector (needs a live OAuth provider).
 5. Per-engagement network isolation (needs infrastructure).
 
-The remaining two are not claimed as done until they exist.
+The last three are not claimed as actively guarding traffic until they are on a path.
 
 ## Ingest scrubbing
 
