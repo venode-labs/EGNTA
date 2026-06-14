@@ -189,6 +189,40 @@ def detect(events: list[Event]) -> tuple[list[Finding], list[tuple]]:
                                     frequency=round(dfg.get((a, b), 0) / total_trans, 3),
                                     fixability=0.6, evidence_fqn=f"metric.dispatch-bottleneck.{key}"))
 
+    # segregation-of-duties: the same resource both quotes and approves a job. A
+    # controls violation that needs resource-identity correlation across two
+    # activities, which the structural detectors above do not do.
+    sod = 0
+    for ev in cases.values():
+        quoter = next((e.resource for e in ev if e.activity == "Quote"), None)
+        approver = next((e.resource for e in ev if e.activity == "QuoteApproved"), None)
+        if quoter and approver and quoter == approver:
+            sod += 1
+    if sod / n_cases > 0.02:
+        fqn = "metric.segregation-of-duties.Quote/QuoteApproved"
+        metrics.append((fqn, "self_approved_jobs", sod, {"jobs": sod}))
+        findings.append(Finding("segregation-of-duties",
+                                f"{sod} jobs quoted and approved by the same person",
+                                "Quote/QuoteApproved", severity=0.8, frequency=round(sod / n_cases, 3),
+                                fixability=0.8, evidence_fqn=fqn))
+
+    # cross-source-orphan: money recorded in finance with no matching delivery in the
+    # field-service system. The cross-source reconciliation the single-system process
+    # miners cannot do, since they see one system at a time.
+    fin_paid = {e.case_id for e in events if e.activity in ("Invoice", "Paid")
+                and e.source_system == "finance"}
+    fsm_done = {e.case_id for e in events if e.activity == "JobComplete"
+                and e.source_system == "fsm"}
+    orphans = fin_paid - fsm_done
+    if fin_paid and len(orphans) / len(fin_paid) > 0.02:
+        fqn = "metric.cross-source-orphan.Invoice"
+        metrics.append((fqn, "billed_without_delivery", len(orphans),
+                        {"billed": len(fin_paid), "orphans": len(orphans)}))
+        findings.append(Finding("cross-source-orphan",
+                                f"{len(orphans)} jobs billed in finance with no field-service completion",
+                                "Invoice", severity=0.85, frequency=round(len(orphans) / len(fin_paid), 3),
+                                fixability=0.6, evidence_fqn=fqn))
+
     # recording-error: out-of-order timestamps in ingest order, a data-quality finding.
     rec = mining.recording_errors(events)
     if rec:

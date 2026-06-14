@@ -37,7 +37,9 @@ def _job_events(rng, i, secret_case):
     bad_order = (i % 13) == 0        # out-of-order timestamp
     has_defect = (i % 10) < 3        # a defect raised
     stalled = has_defect and (i % 2) == 0   # ~half of defects never rectified
-    segregation = (i % 9) == 0       # held-out: same resource quotes and approves
+    segregation = (i % 9) == 0       # same resource quotes and approves
+    cross_orphan = (i % 8) == 0      # billed in finance, no completion in field-service
+    dup_invoice = (i % 12) == 0      # held-out: same job invoiced twice (entity resolution)
 
     quoter = f"tech-{rng.randint(1, 8)}"
     approver = quoter if segregation else f"mgr-{rng.randint(1, 3)}"
@@ -46,8 +48,11 @@ def _job_events(rng, i, secret_case):
     flow = ["Lead", "Quote"]
     if not no_approval:
         flow.append("QuoteApproved")
-    flow += ["Scheduled", "Attended", "JobComplete"]
-    if not unbilled:
+    flow += ["Scheduled", "Attended"]
+    if not cross_orphan:
+        flow.append("JobComplete")       # cross_orphan: no completion recorded in field-service
+    billed = cross_orphan or not unbilled
+    if billed:
         flow += ["Invoice", "Paid"]
 
     events, t = [], _BASE_TS + i * _DAY
@@ -68,6 +73,13 @@ def _job_events(rng, i, secret_case):
         if rework and act == "Attended":
             t += rng.randint(3600, 7200)
             events.append(Event(case, "Attended", float(t), tech, "fsm", fqn))
+
+    # held-out: a duplicate invoice for the same job on a second finance entity. No
+    # detector resolves "two invoices, one job", so the miner cannot catch it.
+    if dup_invoice and billed:
+        for act in ("Invoice", "Paid"):
+            t += rng.randint(3600, 7200)
+            events.append(Event(case, act, float(t), tech, "finance", f"finance.invoice.{i}b"))
 
     if has_defect:
         t += rng.randint(3600, 7200)
@@ -102,8 +114,11 @@ def generate(n_cases: int = 120, n_assets: int = 30, seed: int = 7):
     for i in range(n_cases):
         events += _job_events(rng, i, secret_case)
         entities.append(Entity(f"fsm.job.{i}", "job", f"Job {i}", "fsm"))
-        if (i % 7) != 0:
+        billed = (i % 8 == 0) or (i % 7 != 0)
+        if billed:
             entities.append(Entity(f"finance.invoice.{i}", "invoice", f"Invoice {i}", "finance"))
+            if i % 12 == 0:
+                entities.append(Entity(f"finance.invoice.{i}b", "invoice", f"Invoice {i} dup", "finance"))
 
     review_ts = max(e.ts for e in events)
     for j in range(n_assets):
@@ -118,8 +133,10 @@ def generate(n_cases: int = 120, n_assets: int = 30, seed: int = 7):
         AnswerItem("rework-loop", "Attended", "repeat site visits on the same job"),
         AnswerItem("dispatch-bottleneck", "Scheduled->Attended", "long delay from scheduled to on site"),
         AnswerItem("recording-error", "log", "out-of-order timestamps in the log"),
-        AnswerItem("segregation-of-duties", "Quote/QuoteApproved", "HELD-OUT: same resource quotes and "
-                   "approves; needs resource-identity correlation across two activities, which no "
+        AnswerItem("segregation-of-duties", "Quote/QuoteApproved", "same resource quotes and approves"),
+        AnswerItem("cross-source-orphan", "Invoice", "billed in finance with no field-service completion"),
+        AnswerItem("duplicate-invoice", "Invoice/duplicate", "HELD-OUT: the same job invoiced twice on "
+                   "two finance entities; catching it needs entity resolution across invoices, which no "
                    "deterministic detector computes, so the miner cannot recover it"),
     ]
     return events, entities, answer, _PLANTED_SECRET

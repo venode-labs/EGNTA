@@ -109,7 +109,8 @@ the activity; for recording-error, key is "log"."""
 _TRADES_BASELINE_SYSTEM = """You are an operations analyst reviewing a fire/trades business.
 From the process data given, find the top operational problems and classify each as one of:
 unbilled-completion, rectification-stall, compliance-overdue, approval-gap, rework-loop,
-dispatch-bottleneck, recording-error. Cite an entity id from the provided list for each.
+dispatch-bottleneck, segregation-of-duties, cross-source-orphan, recording-error. Cite an
+entity id from the provided list for each.
 This is a single pass, no tools. Australian English, no em dashes.
 
 Return ONLY JSON: {"findings":[{"kind":str,"key":str,"evidence_fqn":str}]}

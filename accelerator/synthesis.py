@@ -58,6 +58,10 @@ Trades and fire defect taxonomy, match each fact to exactly one kind:
 - dispatch-bottleneck: a stage transition whose mean duration is far above the others,
   roughly 2x or more the median candidate. Flag a genuine second one, but never a
   borderline stage in line with the rest. A false bottleneck is a wrong finding.
+- segregation-of-duties: the same resource both quotes and approves a job, a controls
+  violation.
+- cross-source-orphan: money recorded in finance with no matching field-service
+  completion, a cross-system reconciliation gap.
 - recording-error: out-of-order or impossible timestamps, a data-quality finding; never
   let a recording error masquerade as a bottleneck.
 
@@ -66,7 +70,7 @@ assets) above pure revenue or efficiency findings. severity, frequency and fixab
 are each 0..1. The kind and key MUST match the fact you cite.
 
 Return ONLY JSON:
-{"findings":[{"kind":"unbilled-completion|rectification-stall|compliance-overdue|approval-gap|rework-loop|dispatch-bottleneck|recording-error",
+{"findings":[{"kind":"unbilled-completion|rectification-stall|compliance-overdue|approval-gap|rework-loop|dispatch-bottleneck|segregation-of-duties|cross-source-orphan|recording-error",
   "title":str,"key":str,"severity":0..1,"frequency":0..1,"fixability":0..1,
   "evidence_fqn":str,"recommendation":str}]}"""
 

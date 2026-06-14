@@ -28,20 +28,28 @@ def test_detects_planted_and_misses_heldout():
     events, _, answer, _ = generate_trades.generate()
     findings, _ = trades.detect(events)
     got = {(f.kind, f.key) for f in findings}
-    detectable = [(a.kind, a.key) for a in answer if a.kind != "segregation-of-duties"]
+    # every class except the held-out duplicate-invoice has a detector and must fire,
+    # including the cross-activity (segregation) and cross-source (orphan) ones
+    detectable = [(a.kind, a.key) for a in answer if a.kind != "duplicate-invoice"]
     for kind, key in detectable:
         assert (kind, key) in got, f"detector missed planted {kind}/{key}"
+    assert ("segregation-of-duties", "Quote/QuoteApproved") in got
+    assert ("cross-source-orphan", "Invoice") in got
     # the held-out class has no detector and must NOT be fabricated
-    assert ("segregation-of-duties", "Quote/QuoteApproved") not in got
+    assert ("duplicate-invoice", "Invoice/duplicate") not in got
 
 
 def test_clean_log_stays_quiet():
-    # one clean job, every stage present, even gaps, no defect/rework/overdue
+    # one clean job: every stage present, even gaps, distinct quoter and approver,
+    # billing recorded in finance against a completed job. Nothing should fire.
+    res = {"Quote": "tech-1", "QuoteApproved": "mgr-1"}
+    src = {"Invoice": "finance", "Paid": "finance"}
     ev, t = [], 1_700_000_000
     for act in ("Lead", "Quote", "QuoteApproved", "Scheduled", "Attended", "JobComplete",
                 "Invoice", "Paid"):
         t += 3600
-        ev.append(Event("job-1", act, float(t), "tech-1", "fsm", "fsm.job.1"))
+        fqn = "finance.invoice.1" if act in ("Invoice", "Paid") else "fsm.job.1"
+        ev.append(Event("job-1", act, float(t), res.get(act, "tech-2"), src.get(act, "fsm"), fqn))
     findings, _ = trades.detect(ev)
     assert findings == []
 
@@ -91,6 +99,33 @@ def test_trades_pipeline_grounds_and_beats_naive():
     assert r["egnta"]["gated"]["precision"] == 1.0
     # held-out class means recall is honestly below 1.0
     assert r["egnta"]["gated"]["recall"] < 1.0
+
+
+def test_report_renders_register():
+    from accelerator import report
+    from accelerator.model import Finding
+    findings = [
+        Finding("compliance-overdue", "3 assets overdue for AS 1851", "RoutineService",
+                severity=0.95, frequency=0.2, fixability=0.7, evidence_fqn="metric.compliance-overdue.RoutineService"),
+        Finding("unbilled-completion", "5 jobs never invoiced", "JobComplete",
+                severity=0.85, frequency=0.1, fixability=0.8, evidence_fqn="metric.unbilled-completion.JobComplete"),
+    ]
+    md = report.render(findings, "trades")
+    assert "pain register" in md.lower()
+    assert "Critical" in md                       # severity band rendered
+    assert "AS 1851" in md and "RoutineService" in md
+    assert report.render([], "trades").lower().count("no material findings") == 1
+
+
+def test_egress_allowlist_enforced():
+    from accelerator import readonly
+    readonly.egress_allowlist_check("api.anthropic.com", "GET")   # allowed
+    for host, verb in (("evil.example", "GET"), ("api.anthropic.com", "POST")):
+        try:
+            readonly.egress_allowlist_check(host, verb)
+            assert False, f"should refuse {host}/{verb}"
+        except readonly.ReadOnlyViolation:
+            pass
 
 
 if __name__ == "__main__":

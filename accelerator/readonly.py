@@ -1,11 +1,12 @@
 """Read-only enforcement.
 
-Honest accounting: of the five defence-in-depth layers in the architecture, TWO
-are enforceable in code today and live here, the SELECT-only SQL guard and the
-read-only tool-call guard (the shape of the Claude Agent SDK PreToolUse hook).
-The other three (client read-only OAuth scopes, an egress proxy that blocks write
-verbs, per-engagement network isolation) require live infrastructure and are
-explicit stubs below, raising rather than pretending. Counting them as "done"
+Honest accounting: of the five defence-in-depth layers in the architecture, THREE
+are enforceable in code today and live here, the SELECT-only SQL guard, the
+read-only tool-call guard (the shape of the Claude Agent SDK PreToolUse hook), and
+the egress allowlist policy (write-verb and host decision function, enforced wherever
+egress is routed through it). The other two (client read-only OAuth scopes, which
+need a live OAuth provider, and per-engagement network isolation, which needs infra)
+are explicit stubs below, raising rather than pretending. Counting them as "done"
 before they exist would be the dishonest move, so they raise NotImplementedError.
 """
 from __future__ import annotations
@@ -60,7 +61,18 @@ def require_readonly_oauth_scope(connector: str, granted_scopes: list[str]) -> N
         "by EGNTA, only documented in the per-engagement scope manifest.")
 
 
-def egress_allowlist_check(host: str, method: str) -> None:
-    raise NotImplementedError(
-        "STUB: egress write-verb allowlist needs a real forward proxy (iteration 2). "
-        "Until then, egress is NOT enforced by EGNTA.")
+# the only host the engine itself needs to reach: the model API. A client engagement
+# adds its read-only source hosts to the allowlist at configuration time.
+_DEFAULT_EGRESS_ALLOWLIST = frozenset({"api.anthropic.com"})
+
+
+def egress_allowlist_check(host: str, method: str,
+                           allowlist: frozenset = _DEFAULT_EGRESS_ALLOWLIST) -> None:
+    """Enforce read-only, allowlisted egress: raise ReadOnlyViolation on a write HTTP
+    verb or a host outside the allowlist. This is the decision function, enforced
+    wherever egress is routed through it; wiring it into a forward proxy at deploy time
+    is what makes it network-level. Enforced layer 3 (was a stub)."""
+    if (method or "").upper() not in _READ_HTTP:
+        raise ReadOnlyViolation(f"egress write verb refused: {method!r}")
+    if host not in allowlist:
+        raise ReadOnlyViolation(f"egress host not allowlisted: {host!r}")
