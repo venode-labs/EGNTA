@@ -55,17 +55,43 @@ homework risk). Mitigation for iteration 2+: freeze and publish the defect
 taxonomy and a synonym table, and add held-out defect types the engine was not
 tuned on.
 
-## Honest status
+## Results
 
-- **Iteration 1 (now):** the DETERMINISTIC mining layer vs the naive heuristic, on
-  the synthetic corpus, runs in CI with no LLM key. Result: gated F1 1.0 vs 0.333,
-  REL = 1.0, zero hallucinations, zero secret leak. This is a **lower bound and a
-  plumbing proof**, NOT the headline.
-- **Iteration 2 (deferred, needs an Anthropic key):** the grounded LLM synthesis
-  layer and a real single-LLM baseline. The headline real-LLM REL is measured
-  here and is allowed to honestly report a miss; "tune until >= 0.50" is a research
-  outcome, not a scheduled deliverable.
+- **Iteration 1, deterministic layer (CI default, no key):** gated F1 1.0 vs the
+  naive heuristic 0.333, zero hallucinations, zero secret leak. A lower bound and
+  a plumbing proof, not the headline.
+- **Iteration 2, real-LLM headline (15/06/2026, claude-sonnet-4-6, 120-case corpus,
+  2 calls, ~2.3k tokens, ~2 cents):** Egenta (deterministic mining + grounded
+  synthesis) gated F1 **1.0** (precision 1.0, recall 1.0, 0 false positives, 0
+  hallucination) vs a fair naive single-LLM baseline gated F1 **0.889** (precision
+  0.8, recall 1.0, 1 false positive). REL = **1.0**, which clears the pre-registered
+  0.50 target. Stable across two runs.
 
-No "Egenta is 50% better" claim may appear in any deck, README, or proposal until
-the iteration-2 real-LLM run exists. Until then the only true statement is "metric
-pre-registered, deterministic-layer lower bound measured".
+## Honest reading of that number
+
+REL 1.0 meets the target but is FLATTERED, and the build says so out loud:
+
+- The absolute gated-F1 gain is only **+0.111** (eliminating one false positive).
+  REL amplifies it to 1.0 because the baseline is near ceiling (denominator
+  1 - 0.889 = 0.111). The runner now prints `abs_f1_delta_gated` next to REL so the
+  inflation is never hidden.
+- A well-fed single LLM already finds all four planted defects (recall 1.0). These
+  four defect types are too easy to be discriminating. So detection-F1 is NOT where
+  Egenta wins big.
+- Egenta's genuine, non-inflated edge on this corpus: **precision 1.0 vs 0.8**
+  (zero false claims), **zero hallucination** under the grounding gate,
+  **determinism**, an **immutable evidence citation per finding**, and **cost** (two
+  calls, a couple of cents).
+
+## Honest limitation and next step
+
+The headline detection number is only as meaningful as the corpus is hard. The next
+step to make detection-F1 discriminating is a **held-out harder corpus**: defect
+types the deterministic miner has no detector for (segregation-of-duties, subtle
+non-slowest bottlenecks, cross-source inconsistencies), where a single-pass LLM
+genuinely struggles and the grounded-synthesis layer has to earn its recall from the
+raw summary. Until that exists, the honest claim is: "Egenta matches a strong single
+LLM on detecting in-scope defects while eliminating false positives and
+hallucinations, deterministically and cheaply; the pre-registered REL target is met
+but flattered by an easy corpus." Do not claim "50% better at finding problems"
+without the harder corpus.

@@ -38,3 +38,27 @@ Airbyte, OpenMetadata) before writing a line.
   and the headline real-LLM 50% measurement, which is allowed to honestly report a
   miss. Live connectors, OAuth, client Postgres, and the Anthropic key are explicit
   stubs, not claimed as done.
+
+## 0004, iteration 2 shipped, the real-LLM headline (15/06/2026)
+
+**Status:** accepted, shipped.
+
+**What.** The grounded synthesis layer (`accelerator/synthesis.py`, Claude reasons
+over the deterministic mining, every finding cites a resolvable evidence_fqn or is
+dropped, with a safety net so it never regresses below the miner), a thin
+vault-keyed Claude client (`accelerator/llm.py`, key from `vault get
+anthropic/api-key`, prompt-cached system, mock mode for CI), and a fair naive
+single-LLM baseline. Both systems get the same warehouse summary. `bench.run
+--real-llm` measures the headline; CI stays on the deterministic path (no key).
+
+**Result (honest).** Egenta gated F1 1.0 (precision 1.0, 0 hallucination) vs the
+naive single-LLM 0.889 (precision 0.8, 1 false positive). REL 1.0 meets the
+pre-registered 0.50 target, but the absolute gain is only +0.111 and the baseline
+is near ceiling, so REL is flattered. The runner now prints the absolute delta. The
+genuine edge is precision, zero hallucination, determinism, and cost (2 calls,
+~2.3k tokens). See EVAL-METHOD.md.
+
+**Honest limitation.** The four planted defects are too easy for a well-fed LLM. A
+held-out harder corpus (defects the miner has no detector for) is the next step to
+make detection-F1 discriminating. Do not claim "50% better at finding problems"
+without it. This is the loop's honest stopping point, not a faked win.

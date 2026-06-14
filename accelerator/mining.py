@@ -100,6 +100,22 @@ def variants(events: list[Event]) -> Counter:
     return Counter(tuple(e.activity for e in ev) for ev in _by_case(events).values())
 
 
+def summary(events: list[Event]) -> dict:
+    """Compact, deterministic snapshot for an LLM to reason over. Both the Egenta
+    synthesis and the naive baseline are handed the SAME facts, so the comparison
+    measures structured-mining-plus-grounding vs a single raw pass, not data access."""
+    dur = transition_durations(events)
+    slow = sorted(dur.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    return {
+        "n_cases": len({e.case_id for e in events}),
+        "activity_frequency": dict(activity_frequency(events)),
+        "activity_case_coverage": {k: round(v, 3) for k, v in activity_case_coverage(events).items()},
+        "slow_transitions": [{"transition": f"{a}->{b}", "mean_seconds": round(s, 1)} for (a, b), s in slow],
+        "rework_cases_by_activity": rework(events),
+        "cases_with_recording_errors": len(recording_errors(events)),
+    }
+
+
 def dfg_fitness(events: list[Event], reference_dfg: Counter) -> float:
     """A clean-room conformance proxy (NOT token-replay): the mean fraction, per
     case, of consecutive activity pairs that exist in a reference DFG. Named

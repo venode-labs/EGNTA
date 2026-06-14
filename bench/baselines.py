@@ -15,9 +15,10 @@ plumbing proof, NOT the headline real-LLM result.
 """
 from __future__ import annotations
 
+import json
 from collections import Counter
 
-from accelerator import pain, warehouse
+from accelerator import mining, pain, synthesis, warehouse
 from accelerator.model import Finding
 
 
@@ -49,4 +50,45 @@ def naive_baseline(conn) -> list[Finding]:
     if per_case > 1.0:
         findings.append(Finding("rework", f"Frequent {top_act}", top_act,
                                 severity=0.5, frequency=0.5, fixability=0.5, evidence_fqn=cite))
+    return findings
+
+
+# ---- real-LLM systems (iteration 2): need a key via the vault ----------------
+
+def egenta_llm(conn, llm) -> list[Finding]:
+    """The product: deterministic mining + grounded Claude synthesis."""
+    return synthesis.synthesise(conn, llm)
+
+
+_BASELINE_SYSTEM = """You are an operations analyst. From the process data given, find
+the top operational problems and classify each as one of: bottleneck, rework,
+control-gap, recording-error. Cite an entity id from the provided list for each.
+This is a single pass, no tools. Australian English, no em dashes.
+
+Return ONLY JSON: {"findings":[{"kind":str,"key":str,"evidence_fqn":str}]}
+For a bottleneck, key is the slow "A->B" transition; for control-gap/rework, key is
+the activity; for recording-error, key is "log"."""
+
+
+def llm_baseline(conn, llm) -> list[Finding]:
+    """A fair naive single-LLM baseline: handed the SAME summary the synthesis sees,
+    but no pre-grounded metrics, no mining classification, no safety net. The honest
+    comparator the 50% headline is computed against."""
+    events = warehouse.load_events(conn)
+    if not events:
+        return []
+    summ = mining.summary(events)
+    sample_fqns = sorted({e.entity_fqn for e in events if e.entity_fqn})[:8]
+    user = ("Process data:\n" + json.dumps(summ, indent=2) +
+            "\n\nEntity ids you may cite:\n" + json.dumps(sample_fqns))
+    try:
+        out = llm.complete_json(_BASELINE_SYSTEM, user, max_tokens=1500)
+        raw = out.get("findings", []) if isinstance(out, dict) else []
+    except (ValueError, RuntimeError, KeyError):
+        raw = []
+    findings: list[Finding] = []
+    for f in raw:
+        fqn = str(f.get("evidence_fqn", ""))
+        findings.append(Finding(str(f.get("kind", "")), str(f.get("kind", "")), str(f.get("key", "")),
+                                severity=0.5, frequency=0.5, fixability=0.5, evidence_fqn=fqn))
     return findings

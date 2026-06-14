@@ -34,8 +34,9 @@ def _ingest(conn, events: list[Event]) -> int:
     return redactions
 
 
-def run(seed: int = 7, n_cases: int = 120) -> dict:
+def run(seed: int = 7, n_cases: int = 120, real_llm: bool = False) -> dict:
     events, entities, answer, secret = generate.generate(n_cases=n_cases, seed=seed)
+    usage = {}
     with tempfile.TemporaryDirectory() as d:
         dbp = Path(d) / "engagement.db"
         conn = warehouse.connect(dbp)
@@ -47,12 +48,28 @@ def run(seed: int = 7, n_cases: int = 120) -> dict:
         stored = " ".join(r["resource"] for r in conn.execute("SELECT resource FROM events"))
         leaked = secret in stored
 
-        egenta_findings = baselines.egenta_pipeline(conn)
-        naive_findings = baselines.naive_baseline(conn)
+        if real_llm:
+            from accelerator import llm  # noqa: PLC0415
+            client = llm.Client()
+            if client.mock:
+                raise RuntimeError("real_llm requested but no key in vault/env (client is in mock mode)")
+            egenta_findings = baselines.egenta_llm(conn, client)
+            naive_findings = baselines.llm_baseline(conn, client)
+            usage = {"calls": client.calls, "input_tokens": client.input_tokens,
+                     "output_tokens": client.output_tokens, "model": client.model}
+            mode = "real-LLM: deterministic mining + grounded Claude synthesis vs naive single-LLM"
+        else:
+            egenta_findings = baselines.egenta_pipeline(conn)
+            naive_findings = baselines.naive_baseline(conn)
+            mode = ("deterministic mining layer vs naive heuristic (lower bound / CI plumbing proof, "
+                    "NOT the headline; run --real-llm for the headline)")
+
         egenta = metric.score_system(conn, egenta_findings, answer)
         naive = metric.score_system(conn, naive_findings, answer)
         rel_gated = metric.rel_error_reduction(egenta["gated"]["f1"], naive["gated"]["f1"])
         rel_ungated = metric.rel_error_reduction(egenta["ungated"]["f1"], naive["ungated"]["f1"])
+        # absolute delta exposes REL inflation when the baseline is near ceiling
+        abs_delta = round(egenta["gated"]["f1"] - naive["gated"]["f1"], 4)
         conn.close()
 
     return {
@@ -61,12 +78,8 @@ def run(seed: int = 7, n_cases: int = 120) -> dict:
         "egenta": egenta, "naive": naive,
         "rel_error_reduction_gated": rel_gated,
         "rel_error_reduction_ungated": rel_ungated,
-        "target": 0.50,
-        "note": ("Iteration 1: deterministic mining layer vs a naive heuristic baseline. "
-                 "This is a lower bound and a plumbing proof, NOT the headline. The headline "
-                 "50% is relative error reduction against a real single-LLM baseline with the "
-                 "grounded synthesis layer, gated by faithfulness, and is deferred to iteration 2 "
-                 "(needs an Anthropic key)."),
+        "abs_f1_delta_gated": abs_delta,
+        "target": 0.50, "real_llm": real_llm, "usage": usage, "note": mode,
     }
 
 
@@ -75,8 +88,9 @@ def main(argv=None) -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--cases", type=int, default=120)
+    ap.add_argument("--real-llm", action="store_true", help="use the real Claude client (spends credit)")
     args = ap.parse_args(argv)
-    r = run(seed=args.seed, n_cases=args.cases)
+    r = run(seed=args.seed, n_cases=args.cases, real_llm=args.real_llm)
 
     if r["ingest"]["secret_leaked"]:
         print("FAIL: planted secret leaked into the warehouse", file=sys.stderr)
@@ -93,8 +107,12 @@ def main(argv=None) -> int:
     print(f"  egenta  gated  P={e['precision']} R={e['recall']} F1={e['f1']}  halluc={r['egenta']['hallucination_rate']}")
     print(f"  naive   gated  P={n['precision']} R={n['recall']} F1={n['f1']}  halluc={r['naive']['hallucination_rate']}")
     print(f"  REL error reduction (gated)   = {r['rel_error_reduction_gated']}  (target {r['target']})")
+    print(f"  absolute gated-F1 delta       = {r.get('abs_f1_delta_gated')}  (exposes REL inflation near ceiling)")
     print(f"  REL error reduction (ungated) = {r['rel_error_reduction_ungated']}")
-    print(f"\n  {r['note']}")
+    if r.get("usage"):
+        u = r["usage"]
+        print(f"  llm usage: {u['calls']} calls, {u['input_tokens']} in / {u['output_tokens']} out tokens ({u['model']})")
+    print(f"\n  mode: {r['note']}")
     return 0
 
 
