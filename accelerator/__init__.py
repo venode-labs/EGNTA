@@ -1,4 +1,4 @@
-"""Egenta discovery accelerator.
+"""EGNTA discovery accelerator.
 
 Read-only client-discovery engine: deterministic connectors normalise each source
 into a canonical event log in a per-engagement warehouse, a deterministic mining

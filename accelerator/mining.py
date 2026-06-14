@@ -111,7 +111,7 @@ def variants(events: list[Event]) -> Counter:
 
 
 def summary(events: list[Event]) -> dict:
-    """Compact, deterministic snapshot for an LLM to reason over. Both the Egenta
+    """Compact, deterministic snapshot for an LLM to reason over. Both the EGNTA
     synthesis and the naive baseline are handed the SAME facts, so the comparison
     measures structured-mining-plus-grounding vs a single raw pass, not data access."""
     dur = transition_durations(events)

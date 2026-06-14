@@ -1,7 +1,7 @@
 """Ingest-boundary scrubber for untrusted client content.
 
 The observer redactor is a hardened CREDENTIAL wall (API keys, tokens, PEM, env
-secrets). Egenta also ingests client business content, which carries personal
+secrets). EGNTA also ingests client business content, which carries personal
 data the credential wall does not touch. This module composes the redactor with
 a PII pass (phone numbers, payment-card numbers via Luhn) so the boundary covers
 both. Person-name detection is deliberately NOT attempted by regex here: it needs

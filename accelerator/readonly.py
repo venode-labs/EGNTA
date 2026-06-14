@@ -57,10 +57,10 @@ def require_readonly_oauth_scope(connector: str, granted_scopes: list[str]) -> N
     raise NotImplementedError(
         "STUB: read-only OAuth scope verification needs a live OAuth provider per "
         "connector (iteration 2). Until then, read-only at the source is NOT enforced "
-        "by Egenta, only documented in the per-engagement scope manifest.")
+        "by EGNTA, only documented in the per-engagement scope manifest.")
 
 
 def egress_allowlist_check(host: str, method: str) -> None:
     raise NotImplementedError(
         "STUB: egress write-verb allowlist needs a real forward proxy (iteration 2). "
-        "Until then, egress is NOT enforced by Egenta.")
+        "Until then, egress is NOT enforced by EGNTA.")

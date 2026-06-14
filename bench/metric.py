@@ -5,11 +5,11 @@ answer key, computed both ungated and gated by citation grounding (a finding is
 grounded only if its evidence_fqn resolves in the warehouse). The headline is
 relative error reduction in gated detection-F1 against the naive baseline:
 
-    REL = (F1_egenta - F1_baseline) / (1 - F1_baseline)
+    REL = (F1_egnta - F1_baseline) / (1 - F1_baseline)
 
 Both systems are scored through the SAME gate, and both gated and ungated numbers
-are reported, because the gate is asymmetric (only Egenta grounds) and hiding the
-ungated number would flatter Egenta. The hallucination rate (ungrounded findings
+are reported, because the gate is asymmetric (only EGNTA grounds) and hiding the
+ungated number would flatter EGNTA. The hallucination rate (ungrounded findings
 over total) is reported per system. PM4Py is NOT part of this metric.
 """
 from __future__ import annotations
@@ -56,9 +56,9 @@ def score_system(conn, findings: list[Finding], answer: list[AnswerItem]) -> dic
     }
 
 
-def rel_error_reduction(f1_egenta: float, f1_baseline: float) -> float:
+def rel_error_reduction(f1_egnta: float, f1_baseline: float) -> float:
     """Relative error reduction. >= 0.50 is the pre-registered target. Computed
     against the naive baseline only, on gated detection-F1."""
     if f1_baseline >= 1.0:
         return 0.0
-    return round((f1_egenta - f1_baseline) / (1.0 - f1_baseline), 4)
+    return round((f1_egnta - f1_baseline) / (1.0 - f1_baseline), 4)

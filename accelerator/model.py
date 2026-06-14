@@ -1,4 +1,4 @@
-"""Canonical data shapes for the Egenta discovery accelerator.
+"""Canonical data shapes for the EGNTA discovery accelerator.
 
 The whole engine speaks one intermediate, the event-log shape that the
 process-mining field standardised on (case id, activity, timestamp [, resource]),

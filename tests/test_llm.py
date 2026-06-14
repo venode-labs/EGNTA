@@ -38,7 +38,7 @@ def test_synthesis_is_grounded_and_has_safety_net():
         '{"findings":[{"kind":"bottleneck","key":"Quote->Approve",'
         '"evidence_fqn":"metric.bottleneck.Quote->Approve","severity":0.8,'
         '"frequency":0.5,"fixability":0.6}]}'))
-    fs = baselines.egenta_llm(c, client)
+    fs = baselines.egnta_llm(c, client)
     assert fs, "synthesis returned no findings"
     assert all(warehouse.citation_resolves(c, f.evidence_fqn) for f in fs), "ungrounded finding survived"
     # safety net: the other deterministic defects are still present
@@ -48,7 +48,7 @@ def test_synthesis_is_grounded_and_has_safety_net():
 def test_synthesis_drops_ungrounded():
     c = _warehouse()
     client = llm.Client(mock=True, mock_reply='{"findings":[{"kind":"x","key":"y","evidence_fqn":"does.not.exist"}]}')
-    fs = baselines.egenta_llm(c, client)
+    fs = baselines.egnta_llm(c, client)
     # the bogus citation is dropped; only the safety-net deterministic findings remain, all grounded
     assert all(f.evidence_fqn != "does.not.exist" for f in fs)
     assert all(warehouse.citation_resolves(c, f.evidence_fqn) for f in fs)

@@ -18,10 +18,10 @@ def test_no_secret_leak():
     assert r["ingest"]["redactions"] >= 1
 
 
-def test_egenta_beats_naive_and_is_grounded():
+def test_egnta_beats_naive_and_is_grounded():
     r = run.run()
-    assert r["egenta"]["gated"]["f1"] > r["naive"]["gated"]["f1"]
-    assert r["egenta"]["hallucination_rate"] == 0.0           # every finding grounded
+    assert r["egnta"]["gated"]["f1"] > r["naive"]["gated"]["f1"]
+    assert r["egnta"]["hallucination_rate"] == 0.0           # every finding grounded
     assert r["rel_error_reduction_gated"] >= 0.50             # the pre-registered target, deterministic layer
 
 
@@ -34,7 +34,7 @@ def test_metric_rel_formula():
 def test_corpus_is_deterministic():
     a = run.run(seed=7)
     b = run.run(seed=7)
-    assert a["egenta"]["gated"]["f1"] == b["egenta"]["gated"]["f1"]
+    assert a["egnta"]["gated"]["f1"] == b["egnta"]["gated"]["f1"]
 
 
 if __name__ == "__main__":

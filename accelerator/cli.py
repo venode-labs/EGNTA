@@ -1,4 +1,4 @@
-"""Egenta CLI. Stdlib-only, so it runs on Linux, macOS and Windows with nothing
+"""EGNTA CLI. Stdlib-only, so it runs on Linux, macOS and Windows with nothing
 but a Python interpreter, and inside the container on any cloud.
 
     python -m accelerator version
@@ -18,7 +18,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="egenta", description="Egenta read-only discovery accelerator")
+    ap = argparse.ArgumentParser(prog="egnta", description="EGNTA read-only discovery accelerator")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("version", help="print the version")
     b = sub.add_parser("bench", help="run the graded benchmark")

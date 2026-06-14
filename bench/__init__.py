@@ -1,4 +1,4 @@
-"""Graded benchmark for the Egenta discovery accelerator.
+"""Graded benchmark for the EGNTA discovery accelerator.
 
 Makes the "better than the baseline" claim falsifiable: a synthetic business with
 planted, labelled defects (an answer key), a pre-registered metric, and two
