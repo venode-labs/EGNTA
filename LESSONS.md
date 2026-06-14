@@ -96,3 +96,9 @@ enforces, before declaring it ready. Run the assembler, do not eyeball the shape
 - **What happened:** told to flag all standout bottlenecks, the synthesis caught the held-out defect (recall 1.0) but over-flagged (precision 0.71, F1 below baseline); tightened to "2x median", it went precise (P 1.0) but missed the held-out (recall 0.8). Neither cleared 50%.
 - **Root cause:** prompt tuning trades precision for recall on a tool-less single pass; it cannot reliably do both on held-out defects.
 - **Guard:** stop tuning against an in-house answer key (grade-your-own-homework). Reliable held-out detection needs a conformance-based detector or multi-pass synthesis, logged as the real next step, not a tuning knob.
+
+## 15/06/2026, Windows CI: SQLite handle left open inside a TemporaryDirectory
+- **What happened:** test_citation_resolves (and the run.py error path) opened a SQLite connection inside `with tempfile.TemporaryDirectory()` and did not close it; Windows cannot delete a file held open, so tempdir cleanup raised PermissionError [WinError 32]. Linux/macOS allowed it, so it was invisible until the cross-OS matrix ran.
+- **Root cause:** an open file handle outlives its temp dir on Windows; POSIX unlink-while-open masks the bug.
+- **Fix:** close DB connections in try/finally before the TemporaryDirectory exits (tests/test_engine.py, bench/run.py).
+- **Guard:** the cross-OS CI matrix (ubuntu/macOS/windows) in discovery-ci.yml catches this class; always close a handle before its temp file is cleaned up.

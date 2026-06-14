@@ -67,13 +67,16 @@ def test_warehouse_readonly_blocks_writes():
 def test_citation_resolves():
     with tempfile.TemporaryDirectory() as d:
         c = warehouse.connect(Path(d) / "w.db")
-        warehouse.init_schema(c)
-        warehouse.upsert_entities(c, [Entity("crm.deal.1", "deal")])
-        warehouse.write_metric(c, "metric.x", "x", 1.0, {})
-        assert warehouse.citation_resolves(c, "crm.deal.1")
-        assert warehouse.citation_resolves(c, "metric.x")
-        assert not warehouse.citation_resolves(c, "does.not.exist")
-        assert not warehouse.citation_resolves(c, "")
+        try:
+            warehouse.init_schema(c)
+            warehouse.upsert_entities(c, [Entity("crm.deal.1", "deal")])
+            warehouse.write_metric(c, "metric.x", "x", 1.0, {})
+            assert warehouse.citation_resolves(c, "crm.deal.1")
+            assert warehouse.citation_resolves(c, "metric.x")
+            assert not warehouse.citation_resolves(c, "does.not.exist")
+            assert not warehouse.citation_resolves(c, "")
+        finally:
+            c.close()  # Windows cannot delete the temp .db while the handle is open
 
 
 def test_select_only_guard():

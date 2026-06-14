@@ -40,37 +40,39 @@ def run(seed: int = 7, n_cases: int = 120, real_llm: bool = False) -> dict:
     with tempfile.TemporaryDirectory() as d:
         dbp = Path(d) / "engagement.db"
         conn = warehouse.connect(dbp)
-        warehouse.init_schema(conn)
-        warehouse.upsert_entities(conn, entities)
-        redactions = _ingest(conn, events)
+        try:
+            warehouse.init_schema(conn)
+            warehouse.upsert_entities(conn, entities)
+            redactions = _ingest(conn, events)
 
-        # leak check: the planted secret must not survive anywhere in the warehouse
-        stored = " ".join(r["resource"] for r in conn.execute("SELECT resource FROM events"))
-        leaked = secret in stored
+            # leak check: the planted secret must not survive anywhere in the warehouse
+            stored = " ".join(r["resource"] for r in conn.execute("SELECT resource FROM events"))
+            leaked = secret in stored
 
-        if real_llm:
-            from accelerator import llm  # noqa: PLC0415
-            client = llm.Client()
-            if client.mock:
-                raise RuntimeError("real_llm requested but no key in vault/env (client is in mock mode)")
-            egenta_findings = baselines.egenta_llm(conn, client)
-            naive_findings = baselines.llm_baseline(conn, client)
-            usage = {"calls": client.calls, "input_tokens": client.input_tokens,
-                     "output_tokens": client.output_tokens, "model": client.model}
-            mode = "real-LLM: deterministic mining + grounded Claude synthesis vs naive single-LLM"
-        else:
-            egenta_findings = baselines.egenta_pipeline(conn)
-            naive_findings = baselines.naive_baseline(conn)
-            mode = ("deterministic mining layer vs naive heuristic (lower bound / CI plumbing proof, "
-                    "NOT the headline; run --real-llm for the headline)")
+            if real_llm:
+                from accelerator import llm  # noqa: PLC0415
+                client = llm.Client()
+                if client.mock:
+                    raise RuntimeError("real_llm requested but no key in vault/env (client is in mock mode)")
+                egenta_findings = baselines.egenta_llm(conn, client)
+                naive_findings = baselines.llm_baseline(conn, client)
+                usage = {"calls": client.calls, "input_tokens": client.input_tokens,
+                         "output_tokens": client.output_tokens, "model": client.model}
+                mode = "real-LLM: deterministic mining + grounded Claude synthesis vs naive single-LLM"
+            else:
+                egenta_findings = baselines.egenta_pipeline(conn)
+                naive_findings = baselines.naive_baseline(conn)
+                mode = ("deterministic mining layer vs naive heuristic (lower bound / CI plumbing proof, "
+                        "NOT the headline; run --real-llm for the headline)")
 
-        egenta = metric.score_system(conn, egenta_findings, answer)
-        naive = metric.score_system(conn, naive_findings, answer)
-        rel_gated = metric.rel_error_reduction(egenta["gated"]["f1"], naive["gated"]["f1"])
-        rel_ungated = metric.rel_error_reduction(egenta["ungated"]["f1"], naive["ungated"]["f1"])
-        # absolute delta exposes REL inflation when the baseline is near ceiling
-        abs_delta = round(egenta["gated"]["f1"] - naive["gated"]["f1"], 4)
-        conn.close()
+            egenta = metric.score_system(conn, egenta_findings, answer)
+            naive = metric.score_system(conn, naive_findings, answer)
+            rel_gated = metric.rel_error_reduction(egenta["gated"]["f1"], naive["gated"]["f1"])
+            rel_ungated = metric.rel_error_reduction(egenta["ungated"]["f1"], naive["ungated"]["f1"])
+            # absolute delta exposes REL inflation when the baseline is near ceiling
+            abs_delta = round(egenta["gated"]["f1"] - naive["gated"]["f1"], 4)
+        finally:
+            conn.close()  # always close, so Windows can delete the temp warehouse
 
     return {
         "corpus": {"cases": n_cases, "seed": seed, "planted_defects": len(answer)},
