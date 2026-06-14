@@ -25,14 +25,20 @@ Maps how a business actually runs, finds where it hurts, and never writes a thin
 
 ## What it is
 
-EGNTA is deployed into a client business, reads how the business actually runs across
-its systems, and returns a prioritised pain register plus AI and process
-recommendations. It is read-only by construction: it never writes to or changes any
-client system. It serves any business as a configurable engine, not a per-client
-rebuild.
+EGNTA reads how a business actually runs across its systems and returns a prioritised
+pain register plus AI and process recommendations. It is read-only by construction: it
+never writes to or changes any client system.
 
-The discovery sprint that used to take a consultant a fortnight of interviews, run
-deterministically and grounded in evidence, in an afternoon.
+It ships as a vertical-configurable engine, and the first vertical is fire, construction
+and service trades (fire protection, electrical, plumbing, HVAC, facilities). The trades
+pack knows the domain: unbilled job completion, defect-to-rectification stall, overdue
+AS 1851 compliance, approval gaps, repeat-visit rework, dispatch bottlenecks. Shipping
+the semantic layer with the product is what lets it run on a real field-service export
+without a bespoke modelling phase first.
+
+It is built for the operator or the consultant who runs the discovery: it speeds the
+evidence-gathering and the first cut of findings, it does not replace the human judgement
+on what to do about them.
 
 ## Why EGNTA
 
@@ -41,7 +47,8 @@ deterministically and grounded in evidence, in an afternoon.
 | **Read-only by design** | No write capability in the code. Reads through client-provisioned read-scoped credentials. Every read is logged. |
 | **Grounded, no hallucination** | Every finding cites a resolvable warehouse fact or it is dropped at the gate. |
 | **Deterministic core** | A clean-room miner produces the evidence; the model reasons over it, never over a live system. Same input, same answer. |
-| **Any business** | A configurable engine, customisation by configuration, not bespoke code per client. |
+| **Vertical packs** | A domain semantic layer ships with the engine. Fire and service trades first; the pack is a module, not a rebuild per client. |
+| **Real connector** | Reads a ServiceM8, simPRO or Uptick CSV or JSON export into the canonical event log. Read-only by nature; it never writes the source. |
 | **Runs anywhere** | Stdlib engine, per-engagement SQLite, a single container. Linux, macOS, Windows, any cloud. |
 | **Cheap** | A discovery run is a couple of model calls, cents, not a multi-day engagement. |
 
@@ -93,12 +100,15 @@ guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Results
 
-The improvement claim is treated as a measurement, pre-registered, not a slogan. On
-the graded synthetic corpus EGNTA scores gated F1 1.0 against a fair naive single-LLM
-baseline at 0.889. Read the honest reading in [`docs/EVAL-METHOD.md`](docs/EVAL-METHOD.md):
-the headline ratio is flattered by a strong baseline, the genuine, repeatable edge is
-precision, grounding, determinism and cost, and generalisation to defect classes the
-miner cannot yet detect is stated as open, not proven. No fabricated numbers.
+The improvement claim is treated as a measurement, pre-registered, not a slogan. The
+trades corpus plants eight labelled defects, one of them, segregation of duties, held
+out as a class no deterministic detector can compute. On that corpus the trades miner
+scores gated precision 1.0, recall 0.875 (it catches all seven it has a detector for and
+honestly misses the held-out one), zero hallucination, zero secret leak. The held-out
+defect is the point: detection-F1 sits below ceiling on purpose, so the number is not a
+graded-your-own-homework 1.0. Read the method in [`docs/EVAL-METHOD.md`](docs/EVAL-METHOD.md).
+The repeatable edge is precision, grounding, determinism and cost; recovering classes the
+miner has no detector for is open work, not a claim.
 
 ## Security
 
@@ -111,10 +121,11 @@ miner cannot yet detect is stated as open, not proven. No fabricated numbers.
 
 - [x] Warehouse, clean-room miner, read-only enforcement, graded benchmark, CI
 - [x] Grounded Claude synthesis and the real-LLM benchmark
-- [x] Multi-bottleneck detection, cross-OS and container deployability
-- [ ] Live read-only connectors (Nango/Merge) and Postgres backend
-- [ ] Held-out generalisation corpus (segregation-of-duties, cross-source)
-- [ ] Model-based name and address PII pass
+- [x] Trades vertical pack (seven domain detectors) and a held-out defect class
+- [x] Read-only CSV/JSON export connector (ServiceM8/simPRO/Uptick shape)
+- [ ] Live read-only API connector to a field-service platform (needs client OAuth)
+- [ ] Cross-source defect detectors (segregation of duties, duplicate invoicing)
+- [ ] Postgres backend and model-based name/address PII pass
 
 ## Docs
 

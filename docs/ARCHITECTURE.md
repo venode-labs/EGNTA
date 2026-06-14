@@ -22,6 +22,23 @@ warehouse of already-extracted, already-redacted, already-mined facts. This fixe
 the cost (no token spend scaling with business size), the security objection (no
 broad live access), and the read-only guarantee at once.
 
+## Vertical packs and the connector boundary
+
+The engine is vertical-configurable. A vertical pack (`accelerator/verticals/`) pins three
+things: the canonical activity vocabulary, the synonym map a connector normalises raw
+source statuses through, and the domain defect detectors. The first pack is fire,
+construction and service trades (`verticals/trades.py`), with seven detectors the generic
+miner cannot express: unbilled completion, rectification stall, overdue AS 1851
+compliance, approval gap, repeat-visit rework, dispatch bottleneck and recording error.
+Shipping the semantic layer with the product is what lets discovery run on a real export
+without a bespoke per-client modelling phase first.
+
+Connectors (`accelerator/connectors/`) are the one boundary where a raw source becomes
+canonical events. `csv_export.py` reads a ServiceM8, simPRO or Uptick CSV or JSON export,
+maps each row through the vertical synonym table, and yields the `Event` shape. It is
+read-only by nature: it opens the file for reading and never writes the source. A live
+read-only API connector (needing client OAuth) is the next increment.
+
 ## Canonical shape
 
 Every connector normalises its source into the event-log shape the process-mining

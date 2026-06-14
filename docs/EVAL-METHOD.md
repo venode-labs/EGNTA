@@ -70,3 +70,23 @@ The supported claim is narrow and verified: EGNTA detects every defect type it h
 detector for, grounded with zero hallucination, deterministically, for a couple of model
 calls, and beats a careful single LLM on this corpus. Generalisation to undetected defect
 classes is open.
+
+## Trades vertical corpus
+
+`bench/generate_trades.py` is the first-vertical corpus: a synthetic fire/service-trades
+business across field-service, finance and compliance sources. It plants eight labelled
+defects: unbilled job completion, defect-to-rectification stall, overdue AS 1851
+compliance, approval gap, repeat-visit rework, dispatch bottleneck, recording error, and,
+held out on purpose, segregation of duties (the same resource quoting and approving a
+job). The held-out class needs resource-identity correlation across two activities, which
+no deterministic detector computes, so the miner cannot recover it.
+
+Run it with `python3 -m bench.run --vertical trades`. Deterministic (no key), the trades
+miner scores gated precision 1.0, recall 0.875, F1 0.875 (seven of eight caught, the
+held-out missed), zero hallucination, zero secret leak, against a naive heuristic at 0.
+
+This fixes the grade-your-own-homework risk the quote-to-cash corpus had grown into: its
+held-out bottleneck became recoverable, so REL flattered to 1.0. The trades held-out is
+recoverable by neither the miner nor the current synthesis, so recall stays honestly below
+ceiling and the number cannot be read as proof of generalisation. The next real step is a
+cross-source detector for the held-out class, not a prompt tune against the answer key.
