@@ -74,20 +74,35 @@ classes is open.
 ## Trades vertical corpus
 
 `bench/generate_trades.py` is the first-vertical corpus: a synthetic fire/service-trades
-business across field-service, finance and compliance sources. It plants eight labelled
+business across field-service, finance and compliance sources. It plants ten labelled
 defects: unbilled job completion, defect-to-rectification stall, overdue AS 1851
-compliance, approval gap, repeat-visit rework, dispatch bottleneck, recording error, and,
-held out on purpose, segregation of duties (the same resource quoting and approving a
-job). The held-out class needs resource-identity correlation across two activities, which
-no deterministic detector computes, so the miner cannot recover it.
+compliance, approval gap, repeat-visit rework, dispatch bottleneck, recording error,
+segregation of duties (same resource quotes and approves), cross-source orphan (billed in
+finance with no field-service completion), and, held out on purpose, a duplicate invoice
+across two finance entities. The held-out class needs entity resolution across invoices,
+which no deterministic detector computes, so the miner cannot recover it.
 
 Run it with `python3 -m bench.run --vertical trades`. Deterministic (no key), the trades
-miner scores gated precision 1.0, recall 0.875, F1 0.933 (seven of eight caught with no
-false positive, the held-out missed), zero hallucination, zero secret leak, against a
-naive heuristic at 0.
+miner scores gated precision 1.0, recall 0.9, F1 0.947 (nine of ten caught with no false
+positive, the held-out missed), zero hallucination, zero secret leak, against a naive
+heuristic at 0.
 
 This fixes the grade-your-own-homework risk the quote-to-cash corpus had grown into: its
-held-out bottleneck became recoverable, so REL flattered to 1.0. The trades held-out is
-recoverable by neither the miner nor the current synthesis, so recall stays honestly below
-ceiling and the number cannot be read as proof of generalisation. The next real step is a
-cross-source detector for the held-out class, not a prompt tune against the answer key.
+held-out bottleneck became recoverable, so REL flattered to 1.0. The rule now is that
+every detector added rotates in a harder held-out, so one class is always undetectable and
+recall stays honestly below ceiling. Segregation of duties was the held-out, a detector
+was written, so the duplicate invoice (needing entity resolution) is the new held-out. The
+next real step is an entity-resolution detector for it, not a prompt tune against the key.
+
+## Real public log
+
+The graded corpus is synthetic so it can carry an answer key. The other half of the
+honesty story is that the ingest and mining core is not synthetic-only.
+`bench/validate_real_log.py` runs the read-only connector and the clean-room miner over a
+real public process log in the XES column convention. Verified on the receipt phase of a
+Dutch environmental-permit process (pm4py-core public test data): 8577 events, 1434 cases,
+27 activities, ingested and mined in well under a second, producing 10 grounded findings
+(control-gaps and a bottleneck) on real-world data with real timestamps and real noise.
+Not part of CI (which stays hermetic, no network, no bundled data); it is a manual
+validator. The trades vertical detectors are domain-specific and stay on the synthetic
+corpus until a real trades export arrives; this validates the generic core.

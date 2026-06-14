@@ -32,9 +32,12 @@ never writes to or changes any client system.
 It ships as a vertical-configurable engine, and the first vertical is fire, construction
 and service trades (fire protection, electrical, plumbing, HVAC, facilities). The trades
 pack knows the domain: unbilled job completion, defect-to-rectification stall, overdue
-AS 1851 compliance, approval gaps, repeat-visit rework, dispatch bottlenecks. Shipping
-the semantic layer with the product is what lets it run on a real field-service export
-without a bespoke modelling phase first.
+AS 1851 compliance, approval gaps, repeat-visit rework, dispatch bottlenecks, the same
+person quoting and approving a job, and money billed in finance with no matching job in
+the field-service system. That last one is cross-source: it joins finance and operations,
+which the single-system process miners do not do. Shipping the semantic layer with the
+product is what lets it run on a real field-service export without a bespoke modelling
+phase first.
 
 It is built for the operator or the consultant who runs the discovery: it speeds the
 evidence-gathering and the first cut of findings, it does not replace the human judgement
@@ -73,9 +76,10 @@ flowchart LR
   S --> R[Prioritised pain register and recommendations]
 ```
 
-Read-only is defence in depth: a SELECT-only warehouse role and a read-only tool
-guard are enforced today; client OAuth scopes, an egress proxy and per-engagement
-isolation are documented stubs. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Read-only is defence in depth: a SELECT-only warehouse role, a read-only tool guard,
+and the egress allowlist policy are enforced today; client OAuth scopes and
+per-engagement network isolation are documented stubs that raise rather than pretend.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Quickstart
 
@@ -83,8 +87,10 @@ Stdlib-only engine. Needs Python 3.12+.
 
 ```bash
 python -m accelerator version
-python -m accelerator bench --json            # deterministic, no key, no network
-ANTHROPIC_API_KEY=sk-ant-... python -m accelerator bench --real-llm
+python -m accelerator bench --vertical trades --json   # deterministic, no key, no network
+python -m accelerator report --vertical trades         # the plain-language pain register
+python -m accelerator report --csv jobs-export.csv     # run it on a real field-service export
+ANTHROPIC_API_KEY=sk-ant-... python -m accelerator bench --vertical trades --real-llm
 ```
 
 ## Deploy anywhere
@@ -101,14 +107,21 @@ guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 ## Results
 
 The improvement claim is treated as a measurement, pre-registered, not a slogan. The
-trades corpus plants eight labelled defects, one of them, segregation of duties, held
-out as a class no deterministic detector can compute. On that corpus the trades miner
-scores gated precision 1.0, recall 0.875 (it catches all seven it has a detector for and
-honestly misses the held-out one), zero hallucination, zero secret leak. The held-out
-defect is the point: detection-F1 sits below ceiling on purpose, so the number is not a
-graded-your-own-homework 1.0. Read the method in [`docs/EVAL-METHOD.md`](docs/EVAL-METHOD.md).
-The repeatable edge is precision, grounding, determinism and cost; recovering classes the
-miner has no detector for is open work, not a claim.
+trades corpus plants ten labelled defects, one of them, a duplicate invoice across two
+finance entities, held out as a class no deterministic detector can compute. On that
+corpus the trades miner scores gated precision 1.0, recall 0.9 (it catches all nine it
+has a detector for and honestly misses the held-out one), F1 0.947, zero hallucination,
+zero secret leak. The held-out defect is the point: detection-F1 sits below ceiling on
+purpose, so the number is not a graded-your-own-homework 1.0. Each detector added rotates
+in a harder held-out, so one class is always undetectable.
+
+The deterministic core is also validated off the synthetic corpus: `bench/validate_real_log.py`
+runs the connector and the clean-room miner over a real public process log (the receipt
+phase of a Dutch environmental-permit process, 1434 cases, 27 activities) and produces
+grounded control-gap and bottleneck findings in under a second. Real data, not just
+generated. Read the method in [`docs/EVAL-METHOD.md`](docs/EVAL-METHOD.md). The repeatable
+edge is precision, grounding, determinism and cost; recovering classes the miner has no
+detector for is open work, not a claim.
 
 ## Security
 
@@ -121,11 +134,12 @@ miner has no detector for is open work, not a claim.
 
 - [x] Warehouse, clean-room miner, read-only enforcement, graded benchmark, CI
 - [x] Grounded Claude synthesis and the real-LLM benchmark
-- [x] Trades vertical pack (seven domain detectors) and a held-out defect class
-- [x] Read-only CSV/JSON export connector (ServiceM8/simPRO/Uptick shape)
+- [x] Trades vertical pack (nine domain detectors incl cross-source) and a rotating held-out
+- [x] Read-only CSV/JSON export connector + core validated on a real public log
+- [x] Plain-language pain-register report; egress allowlist enforced (3 of 5 read-only layers)
 - [ ] Live read-only API connector to a field-service platform (needs client OAuth)
-- [ ] Cross-source defect detectors (segregation of duties, duplicate invoicing)
-- [ ] Postgres backend and model-based name/address PII pass
+- [ ] Entity-resolution detector for the duplicate-invoice held-out class
+- [ ] Postgres backend, OAuth-scope enforcement, model-based name/address PII pass
 
 ## Docs
 

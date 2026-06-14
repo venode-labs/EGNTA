@@ -27,9 +27,11 @@ broad live access), and the read-only guarantee at once.
 The engine is vertical-configurable. A vertical pack (`accelerator/verticals/`) pins three
 things: the canonical activity vocabulary, the synonym map a connector normalises raw
 source statuses through, and the domain defect detectors. The first pack is fire,
-construction and service trades (`verticals/trades.py`), with seven detectors the generic
+construction and service trades (`verticals/trades.py`), with nine detectors the generic
 miner cannot express: unbilled completion, rectification stall, overdue AS 1851
-compliance, approval gap, repeat-visit rework, dispatch bottleneck and recording error.
+compliance, approval gap, repeat-visit rework, dispatch bottleneck, segregation of duties
+(same resource quotes and approves), cross-source orphan (billed in finance with no
+field-service completion, the join the single-system miners do not do), and recording error.
 Shipping the semantic layer with the product is what lets discovery run on a real export
 without a bespoke per-client modelling phase first.
 
@@ -52,23 +54,25 @@ Apromore, ProM) do not attempt.
 
 ## Read-only enforcement
 
-Five defence-in-depth layers are designed. Two are enforced in code today:
+Five defence-in-depth layers are designed. Three are enforced in code today:
 
 1. **SELECT-only warehouse handle** (`warehouse.connect(read_only=True)`, `PRAGMA
    query_only`). Writes raise. Tested.
 2. **Read-only tool guard** (`readonly.read_only_tool_guard`, the shape of the
    Claude Agent SDK PreToolUse hook): denies write HTTP verbs, non-SELECT SQL,
    and any mutating tool, default-deny on unknown. Tested.
+3. **Egress allowlist policy** (`readonly.egress_allowlist_check`): the decision
+   function that refuses a write HTTP verb or a non-allowlisted host. Enforced
+   wherever egress is routed through it; the forward-proxy wiring is the deploy step.
+   Tested.
 
-Three require live infrastructure and are explicit stubs that raise rather than
-pretend (`readonly.require_readonly_oauth_scope`, `readonly.egress_allowlist_check`):
+Two require live infrastructure and are explicit stubs that raise rather than
+pretend (`readonly.require_readonly_oauth_scope`):
 
-3. Client read-only OAuth scopes per connector (iteration 2, needs live OAuth).
-4. Egress proxy blocking write verbs and non-allowlisted hosts (iteration 2).
-5. Per-engagement network isolation.
+4. Client read-only OAuth scopes per connector (needs a live OAuth provider).
+5. Per-engagement network isolation (needs infrastructure).
 
-Today there are two enforced layers plus a SELECT-only database role in production
-parity. The remaining three are not claimed as done until they exist.
+The remaining two are not claimed as done until they exist.
 
 ## Ingest scrubbing
 
