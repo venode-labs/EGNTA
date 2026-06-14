@@ -58,6 +58,13 @@ SYNONYMS = {
 
 ENTITY_KINDS = ("job", "asset", "invoice", "technician", "site", "customer")
 
+# A dispatch bottleneck lives in the job-execution flow only. The compliance and
+# rectification sub-flows have their own cadence (a certificate issued the day after
+# a service is normal, not a bottleneck), so they are excluded from the candidate
+# pool, otherwise a routine compliance gap reads as slow against the tight job steps.
+_JOB_FLOW = {"Lead", "Quote", "QuoteApproved", "Scheduled", "Attended", "JobComplete",
+             "Invoice", "Paid"}
+
 # AS 1851 routine servicing of installed fire safety measures is, at the longest
 # routine interval, annual. An asset whose last routine service predates the review
 # date by more than this (plus a month of grace) is treated as overdue.
@@ -163,8 +170,9 @@ def detect(events: list[Event]) -> tuple[list[Finding], list[tuple]]:
                                 "Attended", severity=0.6, frequency=round(freq, 3),
                                 fixability=0.6, evidence_fqn=fqn))
 
-    # dispatch-bottleneck: a stage transition far above the rest (>= 2x median).
-    dur = mining.transition_durations(events)
+    # dispatch-bottleneck: a job-flow stage transition far above the rest (>= 2x median).
+    dur_all = mining.transition_durations(events)
+    dur = {(a, b): d for (a, b), d in dur_all.items() if a in _JOB_FLOW and b in _JOB_FLOW}
     dfg = mining.directly_follows(events)
     total_trans = sum(dfg.values()) or 1
     if dur:

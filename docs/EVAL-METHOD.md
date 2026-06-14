@@ -82,8 +82,9 @@ job). The held-out class needs resource-identity correlation across two activiti
 no deterministic detector computes, so the miner cannot recover it.
 
 Run it with `python3 -m bench.run --vertical trades`. Deterministic (no key), the trades
-miner scores gated precision 1.0, recall 0.875, F1 0.875 (seven of eight caught, the
-held-out missed), zero hallucination, zero secret leak, against a naive heuristic at 0.
+miner scores gated precision 1.0, recall 0.875, F1 0.933 (seven of eight caught with no
+false positive, the held-out missed), zero hallucination, zero secret leak, against a
+naive heuristic at 0.
 
 This fixes the grade-your-own-homework risk the quote-to-cash corpus had grown into: its
 held-out bottleneck became recoverable, so REL flattered to 1.0. The trades held-out is

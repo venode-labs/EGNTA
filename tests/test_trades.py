@@ -86,6 +86,9 @@ def test_trades_pipeline_grounds_and_beats_naive():
     assert r["ingest"]["secret_leaked"] is False
     assert r["egnta"]["hallucination_rate"] == 0.0
     assert r["egnta"]["gated"]["f1"] > r["naive"]["gated"]["f1"]
+    # precision is the product's claimed edge: no false positives on the corpus.
+    # Guards the compliance-flow transition leaking into dispatch-bottleneck.
+    assert r["egnta"]["gated"]["precision"] == 1.0
     # held-out class means recall is honestly below 1.0
     assert r["egnta"]["gated"]["recall"] < 1.0
 

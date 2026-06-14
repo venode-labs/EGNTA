@@ -4,6 +4,27 @@ Dev lessons from building EGNTA itself. Distinct from `lessons/LESSONS.md`,
 which is EGNTA's learned rules about the Claude sessions it observes. Newest
 first.
 
+## 15/06/2026, a bottleneck detector must not pool sub-flow transitions
+
+**What broke.** The trades dispatch-bottleneck detector ran over every transition in
+the log, so the compliance sub-flow's normal one-day RoutineService to
+CertificateIssued gap read as a bottleneck against the tight job-step median. One
+false positive, gated precision 0.875 not 1.0, and I had written precision 1.0 into the
+README and EVAL-METHOD before verifying. F1 0.933, not the 0.875 the docs claimed.
+
+**Root cause.** A "this stage is slow" detector only makes sense within one cadence.
+Mixing the job-execution flow with the compliance and rectification sub-flows in one
+median pool flags a normal sub-flow gap as slow.
+
+**Fix.** dispatch-bottleneck now scores only transitions where both activities are in
+the job-execution flow (`_JOB_FLOW`); compliance and rectification cadences are
+excluded. Precision back to 1.0, F1 0.933. Docs corrected to the real numbers.
+
+**Guard.** `test_trades_pipeline_grounds_and_beats_naive` now asserts gated precision
+== 1.0, so a sub-flow transition leaking into the bottleneck pool fails CI. And the
+standing lesson: never write a metric into the docs before running the bench that
+produces it.
+
 ## 2026-06-04, converter output must satisfy the trainer's contract
 
 **What broke.** Assembling the coding-security set rejected all 11 transcript
