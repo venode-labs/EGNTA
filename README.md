@@ -87,9 +87,9 @@ docker build -t egnta . && docker run --rm egnta version
 docker compose run --rm egnta bench --json
 ```
 
-Runs on Linux, macOS and Windows (CI proves all three) and as a container on any
-cloud. The Anthropic key is injected via `ANTHROPIC_API_KEY` from your secrets
-manager, never baked into the image. Full guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+Runs on Linux, macOS and Windows, and as a container on any cloud. The Anthropic key
+comes from `ANTHROPIC_API_KEY` at runtime and is never baked into the image. Full
+guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Results
 
@@ -110,7 +110,7 @@ miner cannot yet detect is stated as open, not proven. No fabricated numbers.
 ## Roadmap
 
 - [x] Warehouse, clean-room miner, read-only enforcement, graded benchmark, CI
-- [x] Grounded Claude synthesis, real-LLM headline, honest verdict
+- [x] Grounded Claude synthesis and the real-LLM benchmark
 - [x] Multi-bottleneck detection, cross-OS and container deployability
 - [ ] Live read-only connectors (Nango/Merge) and Postgres backend
 - [ ] Held-out generalisation corpus (segregation-of-duties, cross-source)

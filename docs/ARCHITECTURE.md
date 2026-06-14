@@ -1,10 +1,10 @@
-# Egenta discovery accelerator, architecture
+# EGNTA discovery accelerator, architecture
 
-Egenta is Venode Labs' read-only client-discovery accelerator. Deployed into a
+EGNTA is Venode Labs' read-only client-discovery accelerator. Deployed into a
 client business, it maps how the business actually runs and returns a prioritised
 pain register plus an AI/process recommendation framework. It never writes to or
 changes any client system. It serves any business as a configurable engine, not a
-per-client rebuild (atlas decision 0002).
+per-client rebuild.
 
 ## The load-bearing inversion
 
@@ -33,7 +33,7 @@ plus an `entities` graph keyed by a resolvable `fqn`. Cross-source synthesis ove
 this shape is the differentiator the event-log-only incumbents (PM4Py, bupaR,
 Apromore, ProM) do not attempt.
 
-## Read-only enforcement, honest accounting
+## Read-only enforcement
 
 Five defence-in-depth layers are designed. Two are enforced in code today:
 
@@ -50,8 +50,8 @@ pretend (`readonly.require_readonly_oauth_scope`, `readonly.egress_allowlist_che
 4. Egress proxy blocking write verbs and non-allowlisted hosts (iteration 2).
 5. Per-engagement network isolation.
 
-Claiming five enforced layers before three exist would be dishonest. Today it is
-two enforced plus a SELECT-only DB role in production parity.
+Today there are two enforced layers plus a SELECT-only database role in production
+parity. The remaining three are not claimed as done until they exist.
 
 ## Ingest scrubbing
 
@@ -63,7 +63,7 @@ zero leak on every run.
 
 ## Licence split
 
-PM4Py is AGPL-3.0 (viral over a network service). Egenta ships a clean-room miner
+PM4Py is AGPL-3.0 (viral over a network service). EGNTA ships a clean-room miner
 (`accelerator/mining.py`) reimplemented from the published algorithms. PM4Py is a
 development and CI eval oracle only, never shipped in the distributable and never
 conveyed to a user over a network.

@@ -1,12 +1,12 @@
-# Deploying Egenta
+# Deploying EGNTA
 
-The discovery engine is stdlib-only Python with a per-engagement SQLite warehouse,
-so it runs anywhere a Python interpreter or a container runs: Linux, macOS, Windows,
-and any cloud. No build step, no third-party Python dependencies for the engine.
+The engine is stdlib-only Python with a per-engagement SQLite warehouse, so it runs
+anywhere a Python interpreter or a container runs: Linux, macOS, Windows, any cloud. No
+build step, no third-party Python dependencies.
 
-## 1. Bare Python (any OS)
+## Bare Python
 
-Needs Python 3.12+. Works on Linux, macOS and Windows unchanged (CI proves all three).
+Needs Python 3.12 or newer. The same commands work on Linux, macOS and Windows.
 
 ```
 python -m accelerator version
@@ -14,43 +14,40 @@ python -m accelerator bench --json           # deterministic, no key, no network
 ANTHROPIC_API_KEY=sk-ant-... python -m accelerator bench --real-llm
 ```
 
-On Windows use `set ANTHROPIC_API_KEY=...` (cmd) or `$env:ANTHROPIC_API_KEY=...`
-(PowerShell). The SQLite warehouse uses OS-correct file URIs, so read-only mode works
-on Windows too.
+On Windows set the key with `set ANTHROPIC_API_KEY=...` in cmd or
+`$env:ANTHROPIC_API_KEY=...` in PowerShell. The SQLite warehouse builds OS-correct file
+URIs, so read-only mode works on Windows as well.
 
-## 2. Container (any cloud / any host)
+## Container
 
 ```
-docker build -t egenta .
-docker run --rm egenta version
-docker run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" egenta bench --json
-# or
-docker compose run --rm egenta bench --json
+docker build -t egnta .
+docker run --rm egnta version
+docker run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" egnta bench --json
+docker compose run --rm egnta bench --json
 ```
 
-The image is `python:3.12-slim` + the engine, runs as a non-root user. Push it to any
-registry and run it on ECS/Fargate, Cloud Run, Azure Container Apps, Kubernetes, Fly,
-Railway, or a plain Docker host. arm64 and amd64 both work (the base image is multi-arch).
+The image is `python:3.12-slim` plus the engine and runs as a non-root user. Push it to
+any registry and run it on ECS or Fargate, Cloud Run, Azure Container Apps, Kubernetes,
+Fly or Railway, or a plain Docker host. Both arm64 and amd64 work; the base image is
+multi-arch.
 
-## 3. The Anthropic key
+## The Anthropic key
 
-Read at runtime, never baked into the image or source:
-- **Local dev:** the `pass` vault (`vault get anthropic/api-key`), used automatically.
-- **Container / cloud:** the `ANTHROPIC_API_KEY` env var, injected from your platform's
-  secrets manager (AWS Secrets Manager, GCP Secret Manager, Azure Key Vault, k8s Secret).
+The key is read at runtime, never baked into the image or source. Local development reads
+it from the `pass` vault. A container reads `ANTHROPIC_API_KEY`, which you inject from your
+platform secrets manager: AWS Secrets Manager, GCP Secret Manager, Azure Key Vault, or a
+Kubernetes Secret. The deterministic benchmark and the tests need no key, so CI and a
+smoke deploy run with nothing configured.
 
-The deterministic benchmark and all tests need no key, so CI and a smoke deploy run
-with nothing configured.
+## The warehouse
 
-## 4. The warehouse
+SQLite, one file per engagement: portable, no infrastructure, and the right shape for a
+one-off discovery sprint. A multi-tenant Postgres backend is the scale target, sketched
+in the commented service in `docker-compose.yml` and not yet wired.
 
-Default is SQLite, one file per engagement: portable, zero-infra, and the right shape
-for a one-off discovery sprint. A multi-tenant Postgres backend is the documented scale
-target (see the commented service in `docker-compose.yml`); it is not wired yet and is
-not claimed as done.
+## Continuous integration
 
-## 5. What CI proves
-
-`discovery-ci.yml` runs the full test suite and benchmark on ubuntu, macOS and Windows,
-and builds and runs the container, on every push. Green there means it runs on all three
-host OS types and in a container.
+`discovery-ci.yml` runs the test suite and the benchmark on Ubuntu, macOS and Windows and
+builds and runs the container on every push, so a green build means it works on all three
+host operating systems and in a container.

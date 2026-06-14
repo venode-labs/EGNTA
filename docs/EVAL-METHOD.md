@@ -1,101 +1,72 @@
-# Egenta eval method, pre-registered
+# EGNTA eval method
 
-The claim "Egenta is better than the alternative" is treated as a measurement
-problem, not a marketing line. This document pre-registers the metric so the
-number cannot be reverse-fitted later.
+The benchmark is pre-registered so the metric cannot be fitted after the fact.
 
 ## Corpus
 
-`bench/generate.py` builds a synthetic quote-to-cash business across CRM and
-finance source systems and plants four labelled defects with a ground-truth
-answer key: a bottleneck transition, a skipped control (approval), a rework loop,
-and out-of-order recording errors. Deterministic given a seed. A fake secret is
-planted in a free-text field so the ingest scrubber is graded too.
+`bench/generate.py` builds a synthetic quote-to-cash business across CRM and finance
+sources and plants four labelled defects with a ground-truth answer key: a bottleneck
+transition, a skipped approval control, a rework loop, and out-of-order recording
+errors. The corpus is deterministic given a seed. A fake secret is planted in a
+free-text field so the ingest scrubber is graded on the same run.
 
 ## Metric
 
-Detection precision/recall/F1 of the emitted pain register against the answer key,
-computed two ways:
+Detection precision, recall and F1 of the emitted pain register against the answer key,
+computed two ways. Ungated counts every finding. Gated counts only findings whose
+`evidence_fqn` resolves in the warehouse. Both are reported, since the grounding gate is
+asymmetric and the gated number alone would flatter EGNTA. Hallucination rate, ungrounded
+findings over total, is reported per system.
 
-- **ungated**: every finding counts.
-- **gated**: only findings whose `evidence_fqn` resolves in the warehouse count
-  (the grounding/faithfulness gate).
-
-Both are reported, because the gate is asymmetric (only Egenta grounds by design),
-and reporting only the gated number would flatter Egenta. Hallucination rate
-(ungrounded findings over total) is reported per system.
-
-The headline is **relative error reduction in gated detection-F1 against the naive
-baseline**:
+The headline is relative error reduction in gated detection-F1 against the naive baseline:
 
 ```
-REL = (F1_egenta - F1_baseline) / (1 - F1_baseline)
+REL = (F1_egnta - F1_baseline) / (1 - F1_baseline)
 ```
 
-Target: REL >= 0.50. PM4Py is NOT part of this metric. It validates only the
-process-conformance sub-metric (reported as the fitness/precision/generalisation/
-simplicity 4-vector, never a single number, because precision measures are
-axiomatically unreliable), and only as an out-of-process oracle.
+Target REL >= 0.50. PM4Py validates only the process-conformance sub-metric, as an
+out-of-process oracle, and reports the fitness/precision/generalisation/simplicity
+4-vector rather than a single number. It is not part of the headline.
 
-## Known gameability and the mitigations
+## Gameability and mitigations
 
-The red-team flagged two real ways REL can be rigged:
+Two ways the metric can be rigged, and how the design closes them:
 
-1. **Baseline strength is the one knob.** A weak/strawman baseline inflates REL
-   (the denominator). Mitigation: the baseline is a genuine simple single-pass,
-   not a strawman, and in iteration 2 becomes a real single-LLM prompt with the
-   same warehouse, schema hints, and output coaching Egenta gets. The baseline
-   spec is frozen here.
-2. **Gate asymmetry.** The faithfulness gate is applied identically to both
-   systems and both gated and ungated numbers are reported, so a gap the gate
-   manufactures is visible, not hidden.
+- Baseline strength sets the denominator, so a weak baseline inflates REL. The baseline
+  is a real single-LLM pass over the same warehouse summary, with the same schema hints
+  EGNTA gets, and its spec is frozen here.
+- The grounding gate is applied identically to both systems, and both gated and ungated
+  numbers are reported, so any gap the gate manufactures stays visible.
 
-Further: the generator, answer key, and matcher are in-house (grade-your-own-
-homework risk). Mitigation for iteration 2+: freeze and publish the defect
-taxonomy and a synonym table, and add held-out defect types the engine was not
-tuned on.
+The generator, answer key and matcher are in-house, which is a grade-your-own-homework
+risk. The fix, tracked as the next step, is to freeze and publish the defect taxonomy and
+add defect classes the engine was not built to detect.
 
 ## Results
 
-- **Iteration 1, deterministic layer (CI default, no key):** gated F1 1.0 vs the
-  naive heuristic 0.333, zero hallucinations, zero secret leak. A lower bound and
-  a plumbing proof, not the headline.
-- **Easy corpus (4 defects, all in-scope for the miner), real-LLM:** Egenta gated F1
-  1.0 vs naive single-LLM 0.889, REL 1.0. This LOOKED like a clean win but was
-  FLATTERED: the absolute gain was only +0.111 and the baseline was near ceiling
-  (denominator 1 - 0.889). A well-fed single LLM finds all four easy defects, so
-  detection-F1 here is not discriminating.
-- **Discriminating corpus (5 defects, incl. a second bottleneck), iteration 3:** the
-  miner reported only the single slowest transition, so the second bottleneck was
-  genuinely held-out. Egenta then either missed it (precision-tuned, REL 0.444, under
-  target) or caught it while over-flagging (REL negative). The 50% target was NOT met.
-- **Iteration 4 fixed the real limitation the held-out defect exposed:** the miner now
-  detects EVERY transition materially slower than the rest (>= 2x median), a
-  generalisable capability, not a tune; and timing now excludes cases with corrupted
-  timestamps (a data-quality fix) so recording errors stop creating false bottlenecks.
-  Result, real-LLM, stable over runs: Egenta gated F1 **1.0** (P 1.0, R 1.0, catches
-  the second bottleneck precisely) vs naive single-LLM **0.889**. REL **1.0**,
-  absolute **+0.111**.
+Real-LLM, claude-sonnet-4-6, stable across runs. EGNTA (deterministic mining plus
+grounded synthesis) scores gated F1 1.0, precision 1.0, recall 1.0, against a naive
+single-LLM baseline at F1 0.889. REL 1.0, absolute gain +0.111. Zero hallucinations,
+zero secret leak. The deterministic layer alone runs in CI without a key and scores F1
+1.0 against a naive heuristic at 0.286.
 
-## Honest verdict on the 50% claim
+## What the number does and does not show
 
-The 50% target is met on this corpus (REL 1.0), but read it straight:
+REL 1.0 clears the target but the absolute gain is +0.111, because the baseline sits near
+ceiling. The runner prints `abs_f1_delta_gated` alongside REL so the gap is never hidden.
 
-- **REL is still flattered.** The absolute gain is +0.111; REL amplifies it because the
-  baseline is near ceiling. The runner prints `abs_f1_delta_gated` so this is visible.
-- **The genuine iteration-4 win is real, though:** a generalisable multi-bottleneck
-  detector plus a timestamp-quality fix, so the miner catches a defect the naive
-  baseline misses (R 1.0 vs the baseline missing the second bottleneck), precisely.
-  That is a capability improvement, not prompt-tuning against the answer key.
-- **The honesty cost:** the corpus no longer contains a defect the miner cannot detect,
-  so REL 1.0 here does NOT prove generalisation. A true generalisation test needs defect
-  CLASSES outside the miner's detectors, segregation-of-duties, cross-source
-  inconsistency, conformance violations, which remain untested and are the next step.
+The win is a real capability, not a tune. Iteration 4 made the miner detect every
+transition materially slower than the rest, not only the single slowest, and excluded
+cases with corrupted timestamps from the timing so recording errors stop producing false
+bottlenecks. That is what lets EGNTA catch the second bottleneck the naive baseline misses,
+precisely.
 
-**What is substantiated (verified):** Egenta detects every defect type it has a detector
-for, precisely and grounded (zero hallucination, every finding cites a warehouse fact),
-deterministically and cheaply (two calls, a couple of cents), and beats a careful single
-LLM on this corpus. The honest pitch is "grounded, deterministic, auditable, cheap
-discovery that beats a strong LLM on the defects it detects", with generalisation to
-undetected defect classes stated as open, NOT a blanket "50% better at finding any
-problem".
+The limit: this corpus no longer holds a defect the miner cannot detect, so REL 1.0 does
+not prove generalisation. Defect classes outside the current detectors, segregation of
+duties, cross-source inconsistency, conformance violations, are untested and are the next
+piece of work.
+
+The supported claim is narrow and verified: EGNTA detects every defect type it has a
+detector for, grounded with zero hallucination, deterministically, for a couple of model
+calls, and beats a careful single LLM on this corpus. Generalisation to undetected defect
+classes is open.

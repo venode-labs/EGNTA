@@ -1,7 +1,7 @@
-# Egenta build lessons
+# EGNTA build lessons
 
-Dev lessons from building Egenta itself. Distinct from `lessons/LESSONS.md`,
-which is Egenta's learned rules about the Claude sessions it observes. Newest
+Dev lessons from building EGNTA itself. Distinct from `lessons/LESSONS.md`,
+which is EGNTA's learned rules about the Claude sessions it observes. Newest
 first.
 
 ## 2026-06-04 — converter output must satisfy the trainer's contract
@@ -9,7 +9,7 @@ first.
 **What broke.** Assembling the coding-security set rejected all 11 transcript
 trajectories. Three separate causes surfaced only by running collect_dataset:
 (1) `resolve_path` did not expand `~`, so a `~/github/...` source path became
-`Egenta/~/github/...` and failed; (2) the trainer's `normalize_messages` allows
+`EGNTA/~/github/...` and failed; (2) the trainer's `normalize_messages` allows
 only system/user/assistant roles, so the converter's `tool` role rows were all
 marked `bad`; (3) one trajectory ended on a tool result, but SFT requires the
 last turn to be the assistant.
@@ -87,7 +87,7 @@ enforces, before declaring it ready. Run the assembler, do not eyeball the shape
   must be invariants, not assumptions about typical content.
 
 ## 15/06/2026, discovery accelerator eval: relative-improvement metrics are flattered by a strong baseline
-- **What happened:** on the easy 4-defect corpus, Egenta scored REL 1.0 vs a naive single-LLM, which looked like a clean 50%+ win. It was an artefact: the baseline was near ceiling (F1 0.889) so the tiny absolute gain (+0.111) inflated to REL 1.0.
+- **What happened:** on the easy 4-defect corpus, EGNTA scored REL 1.0 vs a naive single-LLM, which looked like a clean 50%+ win. It was an artefact: the baseline was near ceiling (F1 0.889) so the tiny absolute gain (+0.111) inflated to REL 1.0.
 - **Root cause:** relative error reduction (F1_e - F1_b)/(1 - F1_b) has a vanishing denominator against a strong baseline, so a near-zero absolute gain reads as a huge ratio.
 - **Fix:** the runner prints abs_f1_delta_gated next to REL; a HELD-OUT defect (a second bottleneck the deterministic miner cannot report) was added to make detection-F1 discriminating. On that corpus the honest result is REL 0.444 (target NOT met).
 - **Guard:** EVAL-METHOD.md pre-registers the metric, reports absolute delta + gated/ungated, and forbids the "50% better" claim without the held-out corpus. Never headline a ratio metric without its absolute delta and a held-out test.
