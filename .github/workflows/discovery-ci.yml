@@ -1,0 +1,23 @@
+name: discovery-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ['accelerator/**', 'bench/**', 'tests/**', '.github/workflows/discovery-ci.yml']
+  pull_request:
+    paths: ['accelerator/**', 'bench/**', 'tests/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: install test deps
+        run: pip install pytest
+      - name: unit + engine + bench tests
+        run: python -m pytest tests/ -q
+      - name: graded benchmark (fails if the planted secret ever leaks)
+        run: python -m bench.run
