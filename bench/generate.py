@@ -46,7 +46,9 @@ def generate(n_cases: int = 120, seed: int = 7) -> tuple[list[Event], list[Entit
             # bottleneck: Quote -> Approve gap is large
             gap = rng.randint(3600, 7200)
             if act == "Approve":
-                gap += rng.randint(200_000, 400_000)
+                gap += rng.randint(200_000, 400_000)   # top bottleneck: Quote->Approve
+            if act == "Pay":
+                gap += rng.randint(100_000, 180_000)   # held-out 2nd bottleneck: Invoice->Pay
             t += gap
             ts = t
             if bad_order and act == "Invoice":
@@ -64,7 +66,10 @@ def generate(n_cases: int = 120, seed: int = 7) -> tuple[list[Event], list[Entit
             entities.append(Entity(f"finance.invoice.{i}", "invoice", f"Invoice {i}", "finance"))
 
     answer = [
-        AnswerItem("bottleneck", "Quote->Approve", "approval step is the slow transition"),
+        AnswerItem("bottleneck", "Quote->Approve", "approval step is the slowest transition"),
+        AnswerItem("bottleneck", "Invoice->Pay", "HELD-OUT: payment is the second bottleneck; the "
+                   "deterministic miner only reports the single slowest, so only the LLM synthesis "
+                   "recovers this one"),
         AnswerItem("control-gap", "Approve", "approval skipped in ~30% of cases"),
         AnswerItem("rework", "Quote", "quote reworked in ~20% of cases"),
         AnswerItem("recording-error", "log", "out-of-order timestamps in ~10% of cases"),

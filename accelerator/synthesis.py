@@ -51,7 +51,12 @@ def synthesise(conn, llm) -> list[Finding]:
         return []
 
     user = ("Mining facts (cite evidence_fqn from these only):\n" + _facts(metrics) +
-            "\n\nProduce the prioritised pain register with a recommendation per finding.")
+            "\n\nProduce the prioritised pain register with a recommendation per finding. "
+            "Bottlenecks: a transition is a bottleneck ONLY if its mean duration is far above the "
+            "others, roughly 2x or more the median bottleneck-candidate duration. There may be a "
+            "second genuine bottleneck, flag it, but do NOT flag borderline transitions whose "
+            "duration is in line with the rest. Precision matters: a false bottleneck is a wrong "
+            "finding.")
     try:
         out = llm.complete_json(_SYSTEM, user, max_tokens=2048)
         raw = out.get("findings", []) if isinstance(out, dict) else []

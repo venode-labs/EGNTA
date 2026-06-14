@@ -51,14 +51,18 @@ anthropic/api-key`, prompt-cached system, mock mode for CI), and a fair naive
 single-LLM baseline. Both systems get the same warehouse summary. `bench.run
 --real-llm` measures the headline; CI stays on the deterministic path (no key).
 
-**Result (honest).** Egenta gated F1 1.0 (precision 1.0, 0 hallucination) vs the
-naive single-LLM 0.889 (precision 0.8, 1 false positive). REL 1.0 meets the
-pre-registered 0.50 target, but the absolute gain is only +0.111 and the baseline
-is near ceiling, so REL is flattered. The runner now prints the absolute delta. The
-genuine edge is precision, zero hallucination, determinism, and cost (2 calls,
-~2.3k tokens). See EVAL-METHOD.md.
+**Result (honest, after iteration 3 added a held-out defect).** On the EASY 4-defect
+corpus Egenta scored F1 1.0 vs naive 0.889 (REL 1.0), but that was flattered by a
+near-ceiling baseline. On the DISCRIMINATING corpus (5 defects incl a held-out
+second bottleneck the miner cannot report), precision-tuned Egenta scores F1 0.889
+(P 1.0, R 0.8) vs naive 0.8, REL **0.444**, just under target; recall-favouring
+Egenta catches the held-out (R 1.0) but over-flags and scores below naive. **The 50%
+target is NOT met on the discriminating corpus.** See EVAL-METHOD.md.
 
-**Honest limitation.** The four planted defects are too easy for a well-fed LLM. A
-held-out harder corpus (defects the miner has no detector for) is the next step to
-make detection-F1 discriminating. Do not claim "50% better at finding problems"
-without it. This is the loop's honest stopping point, not a faked win.
+**Honest verdict.** Egenta modestly beats a careful single LLM (F1 0.889 vs 0.8) and
+its real, repeatable edge is precision, grounding (zero hallucination, every finding
+cited), determinism, auditability, and cost. The honest pitch is NOT "50% better at
+finding problems". A single-pass LLM synthesis cannot cleanly resolve the
+precision/recall tradeoff on held-out defects by prompting alone; reliably closing it
+needs a conformance-based detector or multi-pass synthesis (real future work, not a
+tuning knob). I stopped tuning rather than game the in-house answer key past 0.50.

@@ -60,38 +60,37 @@ tuned on.
 - **Iteration 1, deterministic layer (CI default, no key):** gated F1 1.0 vs the
   naive heuristic 0.333, zero hallucinations, zero secret leak. A lower bound and
   a plumbing proof, not the headline.
-- **Iteration 2, real-LLM headline (15/06/2026, claude-sonnet-4-6, 120-case corpus,
-  2 calls, ~2.3k tokens, ~2 cents):** Egenta (deterministic mining + grounded
-  synthesis) gated F1 **1.0** (precision 1.0, recall 1.0, 0 false positives, 0
-  hallucination) vs a fair naive single-LLM baseline gated F1 **0.889** (precision
-  0.8, recall 1.0, 1 false positive). REL = **1.0**, which clears the pre-registered
-  0.50 target. Stable across two runs.
+- **Easy corpus (4 defects, all in-scope for the miner), real-LLM:** Egenta gated F1
+  1.0 vs naive single-LLM 0.889, REL 1.0. This LOOKED like a clean win but was
+  FLATTERED: the absolute gain was only +0.111 and the baseline was near ceiling
+  (denominator 1 - 0.889). A well-fed single LLM finds all four easy defects, so
+  detection-F1 here is not discriminating.
+- **Discriminating corpus (5 defects, incl. a HELD-OUT second bottleneck the
+  deterministic miner cannot report), real-LLM, claude-sonnet-4-6, 2 calls/run,
+  stable over two runs:**
+  - Precision-tuned synthesis: Egenta gated F1 **0.889** (P 1.0, R 0.8) vs naive
+    **0.8** (P 0.8, R 0.8). REL **0.444**, absolute **+0.089**.
+  - Recall-favouring synthesis: Egenta catches the held-out defect (R 1.0) but
+    over-flags (P 0.71, F1 0.833), scoring BELOW the naive baseline (REL negative).
 
-## Honest reading of that number
+## Honest verdict on the 50% claim
 
-REL 1.0 meets the target but is FLATTERED, and the build says so out loud:
+**The pre-registered 50% target is NOT met on the discriminating corpus.** REL 0.444
+is just under 0.50, and the only way to push past it is to keep tuning the prompt
+against an in-house answer key, which is the grade-your-own-homework trap the method
+was designed to avoid. The easy-corpus REL 1.0 was an artefact of a near-ceiling
+baseline, not a real 50% advantage.
 
-- The absolute gated-F1 gain is only **+0.111** (eliminating one false positive).
-  REL amplifies it to 1.0 because the baseline is near ceiling (denominator
-  1 - 0.889 = 0.111). The runner now prints `abs_f1_delta_gated` next to REL so the
-  inflation is never hidden.
-- A well-fed single LLM already finds all four planted defects (recall 1.0). These
-  four defect types are too easy to be discriminating. So detection-F1 is NOT where
-  Egenta wins big.
-- Egenta's genuine, non-inflated edge on this corpus: **precision 1.0 vs 0.8**
-  (zero false claims), **zero hallucination** under the grounding gate,
-  **determinism**, an **immutable evidence citation per finding**, and **cost** (two
-  calls, a couple of cents).
+There is a genuine precision/recall tradeoff a single-pass LLM synthesis cannot
+cleanly resolve with prompting alone: it either catches the held-out defect at a
+precision cost, or stays precise and misses it. Reliably catching held-out defects
+precisely needs more than a prompt, a conformance-based detector or multi-pass
+synthesis, which is real engineering, not a tuning knob.
 
-## Honest limitation and next step
-
-The headline detection number is only as meaningful as the corpus is hard. The next
-step to make detection-F1 discriminating is a **held-out harder corpus**: defect
-types the deterministic miner has no detector for (segregation-of-duties, subtle
-non-slowest bottlenecks, cross-source inconsistencies), where a single-pass LLM
-genuinely struggles and the grounded-synthesis layer has to earn its recall from the
-raw summary. Until that exists, the honest claim is: "Egenta matches a strong single
-LLM on detecting in-scope defects while eliminating false positives and
-hallucinations, deterministically and cheaply; the pre-registered REL target is met
-but flattered by an easy corpus." Do not claim "50% better at finding problems"
-without the harder corpus.
+**What IS substantiated (verified, not claimed):** Egenta modestly beats a careful
+single LLM on this harder corpus (F1 0.889 vs 0.8) and its real, repeatable edge is
+**precision and grounding** (every finding cites a resolvable warehouse fact, zero
+hallucination under the gate), **determinism**, **auditability**, and **cost** (two
+calls, a couple of cents). The honest pitch is "grounded, deterministic, auditable,
+cheap discovery that matches a strong LLM and beats it on precision", NOT "50%
+better at finding problems".
