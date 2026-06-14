@@ -62,9 +62,11 @@ CREATE TABLE IF NOT EXISTS audit (
 def connect(path, read_only: bool = False) -> sqlite3.Connection:
     """Open the warehouse. read_only opens the file mode=ro and sets query_only,
     so writes raise sqlite3.OperationalError, the enforced DB-layer read-only."""
-    p = Path(path)
+    p = Path(path).resolve()
     if read_only:
-        conn = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+        # as_uri() yields a valid sqlite file: URI on every OS (forward slashes,
+        # drive letters and spaces handled), so read-only works on Windows too.
+        conn = sqlite3.connect(f"{p.as_uri()}?mode=ro", uri=True)
         conn.execute("PRAGMA query_only = ON")
     else:
         conn = sqlite3.connect(str(p))

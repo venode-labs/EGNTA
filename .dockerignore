@@ -1,0 +1,20 @@
+.git
+**/__pycache__
+**/*.pyc
+.pytest_cache
+# legacy training/observer track is not part of the discovery accelerator image
+configs
+datasets
+journal
+lessons
+prompts
+proposals
+scripts
+observer/brain_*.py
+observer/egenta*.py
+observer/gate.py
+observer/journal.py
+observer/transcript.py
+observer/test_*.py
+docs
+*.md

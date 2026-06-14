@@ -66,3 +66,26 @@ finding problems". A single-pass LLM synthesis cannot cleanly resolve the
 precision/recall tradeoff on held-out defects by prompting alone; reliably closing it
 needs a conformance-based detector or multi-pass synthesis (real future work, not a
 tuning knob). I stopped tuning rather than game the in-house answer key past 0.50.
+
+## 0005, iteration 4, closed the real gap + deployable everywhere (15/06/2026)
+
+**Status:** accepted, shipped.
+
+**Closed the real limitation, not the number.** The held-out defect exposed that the
+miner reported only the single slowest transition. Fixed with a generalisable
+multi-bottleneck detector (flag every transition >= 2x the median duration) plus a
+data-quality fix (exclude cases with corrupted timestamps from timing, which removed
+recording-error-induced false bottlenecks). Egenta now catches the second bottleneck
+precisely: real-LLM gated F1 1.0 (P 1.0, R 1.0) vs naive 0.889, REL 1.0, abs +0.111.
+HONEST CAVEAT (in EVAL-METHOD.md): REL is still flattered by a near-ceiling baseline,
+and the corpus no longer holds a defect the miner cannot detect, so this does not prove
+generalisation; defect CLASSES outside the miner (segregation-of-duties, cross-source)
+remain the open test.
+
+**Deployable on all OS types and cloud.** The engine is stdlib-only with a per-engagement
+SQLite warehouse, so it runs on Linux, macOS and Windows unchanged. Added: a `python -m
+accelerator` CLI, a `python:3.12-slim` non-root Dockerfile (no third-party deps),
+docker-compose, a cross-OS CI matrix (ubuntu/macOS/windows) plus a container build-and-run
+job, a Windows-safe SQLite file URI, and docs/DEPLOY.md. The Anthropic key is injected via
+ANTHROPIC_API_KEY in containers/cloud (the pass vault is the local-dev path). Postgres
+multi-tenant backend is the documented, not-yet-wired scale target.

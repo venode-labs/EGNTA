@@ -1,0 +1,25 @@
+# Local/cloud run of the Egenta discovery accelerator. The engine defaults to a
+# per-engagement SQLite warehouse (zero infra, portable everywhere). The commented
+# Postgres service is the multi-tenant scale target for when the Postgres backend
+# lands; it is intentionally not wired yet so nothing is over-claimed.
+services:
+  egenta:
+    build: .
+    image: egenta:local
+    environment:
+      # inject from your shell or a secrets manager, never commit it
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    # default command prints the version; override to run the benchmark, e.g.
+    #   docker compose run --rm egenta bench --json
+    command: ["version"]
+
+  # postgres:                      # FUTURE: multi-tenant warehouse backend (not yet wired)
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_DB: egenta
+  #     POSTGRES_USER: egenta
+  #     POSTGRES_PASSWORD: ${PGPASSWORD:?set PGPASSWORD}
+  #   volumes:
+  #     - egenta_pg:/var/lib/postgresql/data
+# volumes:
+#   egenta_pg:

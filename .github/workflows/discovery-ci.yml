@@ -3,21 +3,38 @@ name: discovery-ci
 on:
   push:
     branches: [main]
-    paths: ['accelerator/**', 'bench/**', 'tests/**', '.github/workflows/discovery-ci.yml']
+    paths: ['accelerator/**', 'bench/**', 'tests/**', 'observer/redactor.py',
+            'Dockerfile', '.github/workflows/discovery-ci.yml']
   pull_request:
     paths: ['accelerator/**', 'bench/**', 'tests/**']
 
 jobs:
+  # Proves the engine runs identically on Linux, macOS and Windows.
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: install test deps
-        run: pip install pytest
+      - run: pip install pytest
       - name: unit + engine + bench tests
         run: python -m pytest tests/ -q
       - name: graded benchmark (fails if the planted secret ever leaks)
         run: python -m bench.run
+      - name: cli smoke
+        run: python -m accelerator version
+
+  # Proves the container builds and runs (any cloud / any host with a container runtime).
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build image
+        run: docker build -t egenta:ci .
+      - name: run container
+        run: docker run --rm egenta:ci version

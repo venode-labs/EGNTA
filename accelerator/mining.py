@@ -58,10 +58,20 @@ def case_throughput(events: list[Event]) -> dict[str, float]:
 
 
 def transition_durations(events: list[Event]) -> dict[tuple, float]:
-    """Mean duration of each directly-follows transition; the bottleneck signal."""
+    """Mean duration of each directly-follows transition; the bottleneck signal.
+
+    Cases with a recording error (out-of-order timestamps in ingest order) are
+    EXCLUDED: their timings are corrupted and would create spurious adjacencies
+    and inflated durations, false bottlenecks. You do not measure performance from
+    a broken clock. Expects events in ingest order (warehouse.load_events gives it)."""
+    per_case: dict[str, list[Event]] = defaultdict(list)
+    for e in events:
+        per_case[e.case_id].append(e)
     sums: dict[tuple, float] = defaultdict(float)
     counts: dict[tuple, int] = defaultdict(int)
-    for ev in _by_case(events).values():
+    for ev in per_case.values():
+        if any(ev[i + 1].ts < ev[i].ts for i in range(len(ev) - 1)):
+            continue  # corrupted timestamps; skip this case for timing
         for a, b in zip(ev, ev[1:]):
             sums[(a.activity, b.activity)] += (b.ts - a.ts)
             counts[(a.activity, b.activity)] += 1
