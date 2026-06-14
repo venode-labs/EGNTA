@@ -29,7 +29,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.cmd in (None, "version"):
-        print(f"egenta {__version__}")
+        print(f"EGNTA {__version__}")
         return 0
     if args.cmd == "bench":
         sys.path.insert(0, str(_ROOT))
