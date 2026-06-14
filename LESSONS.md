@@ -4,7 +4,7 @@ Dev lessons from building EGNTA itself. Distinct from `lessons/LESSONS.md`,
 which is EGNTA's learned rules about the Claude sessions it observes. Newest
 first.
 
-## 2026-06-04 — converter output must satisfy the trainer's contract
+## 2026-06-04, converter output must satisfy the trainer's contract
 
 **What broke.** Assembling the coding-security set rejected all 11 transcript
 trajectories. Three separate causes surfaced only by running collect_dataset:
