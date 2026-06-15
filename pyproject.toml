@@ -1,9 +1,15 @@
 [project]
-name = "egenta"
+name = "egnta"
 version = "0.1.0"
-description = "Egenta, an always-on agent that observes Claude Code sessions and turns them into scripts, skills, lessons, and QLoRA training data"
-requires-python = ">=3.12,<3.13"
-dependencies = [
+description = "EGNTA, a read-only client-discovery accelerator: maps how a business runs, finds where it hurts, never writes a thing"
+requires-python = ">=3.12"
+dependencies = []
+
+# The discovery engine (accelerator/ + bench/) is stdlib-only, so the base install pulls
+# nothing. The heavy ML stack belongs only to the deferred QLoRA training arm; install it
+# with `pip install egnta[training]`, not by default.
+[project.optional-dependencies]
+training = [
     "accelerate>=1.8.0",
     "bitsandbytes>=0.46.0",
     "datasets>=3.6.0",

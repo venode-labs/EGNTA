@@ -37,8 +37,10 @@ _RULES: list[tuple[str, re.Pattern, int]] = [
     ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"), 0),
     ("google-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"), 0),
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"), 0),
-    # Credentials carried in a URL: scheme://user:pass@host -> redact user:pass.
-    ("url-credentials", re.compile(r"(?<=://)[^/\s:@]+:[^/\s:@]+(?=@)"), 0),
+    # Credentials carried in a URL: scheme://user:pass@host -> redact user:pass. The
+    # password may contain a slash, so the password class excludes only whitespace and @
+    # (a slash in the password must not abort the match and leak the whole credential).
+    ("url-credentials", re.compile(r"(?<=://)[^/\s:@]+:[^\s@]+(?=@)"), 0),
     # Authorization / Bearer headers.
     ("bearer", re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/-]{16,}=*"), 0),
     ("authorization", re.compile(r"(?im)^\s*authorization\s*:\s*\S+.*$"), 0),

@@ -71,16 +71,20 @@ def _to_event(row: dict, cmap: ColumnMap, normalise) -> Event | None:
     if not case_id or not raw_activity or ts_raw in (None, ""):
         return None
     ts = _parse_ts(ts_raw)
-    # scrub free text at the connector boundary, this is the real ingest path; a
-    # credential or card in a client's notes column must never reach the warehouse
+    # scrub EVERY operator-mapped free-text field at the connector boundary, not just
+    # the notes column. A credential or card in the case, status or entity column reaches
+    # the warehouse and the model otherwise (mining keys metrics off the activity and
+    # case id, and synthesis feeds those to the model), so one scrubbed column is not enough.
+    case_id, _ = pii.scrub(case_id)
+    activity, _ = pii.scrub(normalise(raw_activity))
     resource = str(row.get(cmap.resource, "")) if cmap.resource else ""
     if resource:
         resource, _ = pii.scrub(resource)
     if cmap.entity_fqn and row.get(cmap.entity_fqn):
-        fqn = str(row[cmap.entity_fqn]).strip()
+        fqn, _ = pii.scrub(str(row[cmap.entity_fqn]).strip())
     else:
         fqn = f"{cmap.source_system}.job.{case_id}"
-    return Event(case_id, normalise(raw_activity), ts, resource, cmap.source_system, fqn)
+    return Event(case_id, activity, ts, resource, cmap.source_system, fqn)
 
 
 def read_csv(path, cmap: ColumnMap, normalise=trades.canonical_activity) -> list[Event]:
@@ -98,8 +102,15 @@ def read_csv(path, cmap: ColumnMap, normalise=trades.canonical_activity) -> list
     return events
 
 
+_MAX_JSON_BYTES = 256 * 1024 * 1024   # stdlib json can't stream, so cap the file before load
+
+
 def read_json(path, cmap: ColumnMap, normalise=trades.canonical_activity) -> list[Event]:
-    """Read a JSON export (a list of row objects, or an object with a 'rows' list)."""
+    """Read a JSON export (a list of row objects, or an object with a 'rows' list). The
+    file is size-checked before loading, since json.load reads it whole into memory and
+    the row cap below cannot prevent an OOM on a multi-gigabyte JSON file."""
+    if Path(path).stat().st_size > _MAX_JSON_BYTES:
+        raise ValueError(f"JSON export exceeds {_MAX_JSON_BYTES} bytes; refusing to load unbounded")
     with Path(path).open(encoding="utf-8-sig") as fh:
         data = json.load(fh)
     rows = data.get("rows") if isinstance(data, dict) else data

@@ -2,6 +2,9 @@
 **/__pycache__
 **/*.pyc
 .pytest_cache
+# never let a real env file or secret enter the build context
+.env
+.env.*
 # legacy training/observer track is not part of the discovery accelerator image
 configs
 datasets

@@ -4,6 +4,36 @@ Dev lessons from building EGNTA itself. Distinct from `lessons/LESSONS.md`,
 which is EGNTA's learned rules about the Claude sessions it observes. Newest
 first.
 
+## 15/06/2026, second-pass deep audit: cover all fields, and re-verify the verifier
+
+**What broke.** A 6-dimension workflow audit (47 agents) raised 40 findings, the verify pass
+confirmed 32 and marked ZERO already-fixed, a rubber-stamp tell. Verifying each against the
+source myself, the real high-value subset was ~8: the connector scrubbed only the resource
+column (a secret in the case/status/entity column still reached the warehouse and the model);
+the read-only tool guard allowed a GET to any host (cloud metadata, RFC1918) because it never
+composed the egress allowlist; synthesis ran at temperature 0.2 against a determinism claim;
+the card detector missed a PAN split across a newline; the url-credentials redactor leaked a
+password containing a slash; read_json loaded the whole file before the row cap (OOM); pyproject
+shipped a stale description and 10 CUDA deps a stdlib product never imports; the bottleneck gate
+capped candidates at top-5 before the 2x-median filter. The rest were LOW nitpicks or test-only.
+
+**Root cause.** Two classes. (1) A field-level control applied to one of N untrusted fields, the
+scrubber covered notes but not the other three operator-mapped columns. (2) A guard implemented
+but never composed into the call site that needs it (the egress allowlist existed but the tool
+guard did not call it).
+
+**Fix.** Scrub every operator-mapped free-text field in the connector; compose egress_allowlist_check
+into the tool guard so a GET to a non-allowlisted host is denied; temperature 0; card separator
+allows whitespace incl newline; url-cred password class allows a slash; size-check the JSON file
+before load; pyproject base deps empty with a training extra; flag all transitions >= 2x median.
+Guards in tests/test_hardening.py incl the synthesis accept path (was unexercised) and scrub-all-columns.
+
+**Guard / meta-lesson.** A workflow verify pass that marks nothing already-fixed is not verifying,
+re-check every confirmed finding against the source by hand. And when adding a control over
+untrusted input, enumerate ALL the fields/sinks it must cover, not the first one. The LOW
+nitpicks were left undone on purpose: the engine is sound and the ceiling is real client data,
+not more regex.
+
 ## 15/06/2026, a security control on the test path is not on the real path
 
 **What broke.** A line-by-line audit found the PII/credential scrubber was wired only

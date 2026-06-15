@@ -178,12 +178,14 @@ def detect(events: list[Event]) -> tuple[list[Finding], list[tuple]]:
     if dur:
         med = statistics.median(dur.values()) or 1.0
         max_dur = max(dur.values()) or 1.0
-        top = sorted(dur.items(), key=lambda kv: kv[1], reverse=True)[:5]
-        for (a, b), d in top:
-            metrics.append((f"metric.dispatch-bottleneck.{a}->{b}", "transition_mean_duration", d,
-                            {"transition": f"{a}->{b}", "n": dfg.get((a, b), 0)}))
-        for (a, b), d in [x for x in top if x[1] >= 2.0 * med]:
+        # flag every job-flow transition >= 2x the median, not just the top five, capped
+        # so pathological input stays bounded.
+        flagged = sorted(((ab, d) for ab, d in dur.items() if d >= 2.0 * med),
+                         key=lambda kv: kv[1], reverse=True)[:10]
+        for (a, b), d in flagged:
             key = f"{a}->{b}"
+            metrics.append((f"metric.dispatch-bottleneck.{key}", "transition_mean_duration", d,
+                            {"transition": key, "n": dfg.get((a, b), 0)}))
             findings.append(Finding("dispatch-bottleneck", f"Dispatch bottleneck at {key}", key,
                                     severity=round(d / max_dur, 3),
                                     frequency=round(dfg.get((a, b), 0) / total_trans, 3),

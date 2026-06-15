@@ -92,7 +92,11 @@ def test_select_only_guard():
 def test_tool_guard():
     assert readonly.read_only_tool_guard("Write", {})[0] == "deny"
     assert readonly.read_only_tool_guard("http", {"method": "POST"})[0] == "deny"
-    assert readonly.read_only_tool_guard("http", {"method": "GET"})[0] == "allow"
+    # a read verb is necessary but not sufficient: the host must also be allowlisted,
+    # so a GET to a non-allowlisted host (or cloud metadata) is denied, default-deny.
+    assert readonly.read_only_tool_guard("http", {"method": "GET", "host": "api.anthropic.com"})[0] == "allow"
+    assert readonly.read_only_tool_guard("http", {"method": "GET", "host": "169.254.169.254"})[0] == "deny"
+    assert readonly.read_only_tool_guard("http", {"method": "GET"})[0] == "deny"  # no host, default-deny
     assert readonly.read_only_tool_guard("warehouse_query", {"sql": "SELECT 1"})[0] == "allow"
     assert readonly.read_only_tool_guard("warehouse_query", {"sql": "DELETE FROM t"})[0] == "deny"
     assert readonly.read_only_tool_guard("unknown_tool", {})[0] == "deny"  # default-deny

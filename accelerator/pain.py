@@ -27,19 +27,16 @@ def detect(events: list[Event]) -> tuple[list[Finding], list[tuple]]:
     if durations:
         max_dur = max(durations.values()) or 1.0
         med = statistics.median(durations.values()) or 1.0
-        top = sorted(durations.items(), key=lambda kv: kv[1], reverse=True)[:5]
-        # write a citeable metric for the top-5 slow transitions
-        for (a, b), d in top:
-            metrics.append((f"metric.bottleneck.{a}->{b}", "bottleneck_mean_duration", d,
-                            {"transition": f"{a}->{b}", "n": dfg.get((a, b), 0)}))
-        # emit a finding for EVERY transition whose mean duration is materially above
-        # the rest (>= 2x the median), not just the single slowest. A real process has
-        # more than one bottleneck; reporting only the top one was the limitation the
-        # held-out benchmark defect exposed. This generalises, it is not tuned to a
-        # specific planted defect.
-        flagged = [(ab, d) for ab, d in top if d >= 2.0 * med]
+        # flag EVERY transition materially slower than the rest (>= 2x the median), not
+        # just the top five: capping the candidate pool at 5 before the gate could miss a
+        # genuine bottleneck on a wide process. Sort by duration and cap the emitted list
+        # so pathological input cannot produce findings unboundedly.
+        flagged = sorted(((ab, d) for ab, d in durations.items() if d >= 2.0 * med),
+                         key=lambda kv: kv[1], reverse=True)[:10]
         for (a, b), d in flagged:
             key = f"{a}->{b}"
+            metrics.append((f"metric.bottleneck.{key}", "bottleneck_mean_duration", d,
+                            {"transition": key, "n": dfg.get((a, b), 0)}))
             findings.append(Finding("bottleneck", f"Bottleneck at {key}", key,
                                     severity=round(d / max_dur, 3),
                                     frequency=round(dfg.get((a, b), 0) / total_trans, 3),

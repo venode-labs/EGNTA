@@ -112,6 +112,66 @@ def test_grounding_gate_drops_mismatched_citation():
     assert unbilled[0].evidence_fqn == "metric.unbilled-completion.JobComplete"
 
 
+def test_connector_scrubs_all_freetext_columns():
+    # a secret in the STATUS or CASE column, not just notes, must be scrubbed
+    aws = "AKIA" + "1234567890ABCDEF"
+    body = (f"job,status,when,note\n{aws},quote,1700000000,clean\n")
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "x.csv"
+        p.write_text(body, encoding="utf-8")
+        cm = csv_export.ColumnMap(case_id="job", activity="status", ts="when", resource="note")
+        events = csv_export.read_export(p, cm)
+    assert events, "row should ingest"
+    blob = events[0].case_id + events[0].activity + events[0].entity_fqn
+    assert aws not in blob, "a secret in the case/status column must be scrubbed too"
+
+
+def test_card_split_across_newline_redacted():
+    from accelerator import pii
+    out, counts = pii.scrub("card 4111 1111 1111\n1111 here")
+    assert counts.get("payment-card", 0) >= 1
+    assert "1111 here" not in out or "[REDACTED" in out
+
+
+def test_url_credential_with_slash_redacted():
+    from accelerator import pii
+    out, _ = pii.scrub("conn postgres://user:pa/ss@db.host/x")
+    assert "pa/ss" not in out  # password with a slash no longer leaks
+
+
+def test_report_cell_neutralises_formula_and_pipe():
+    from accelerator import report
+    out = report._cell("=cmd|danger")
+    assert out.startswith("'")          # leading formula char neutralised
+    assert "\\|" in out                 # pipe escaped so it cannot break the table
+
+
+def test_synthesis_accept_path_keeps_model_finding():
+    # the model returns a VALID, correctly-cited finding with a distinctive severity; the
+    # gate must ACCEPT it (not fall back to the deterministic finding's severity 0.85),
+    # proving the accept path works and is not masked by the safety net.
+    events = []
+    for i in range(10):
+        for act in ("Quote", "QuoteApproved", "Scheduled", "Attended", "JobComplete"):
+            events.append(Event(f"job-{i}", act, float(1_700_000_000 + i * 86400), "t", "fsm", f"fsm.job.{i}"))
+        if i >= 2:
+            events.append(Event(f"job-{i}", "Invoice", float(1_700_000_500 + i * 86400), "t", "finance", f"finance.invoice.{i}"))
+    mock = llm.Client(mock=True, mock_reply=json.dumps({"findings": [
+        {"kind": "unbilled-completion", "key": "JobComplete",
+         "evidence_fqn": "metric.unbilled-completion.JobComplete",
+         "severity": 0.99, "frequency": 0.5, "fixability": 0.5}]}))
+    with tempfile.TemporaryDirectory() as d:
+        c = warehouse.connect(Path(d) / "w.db")
+        try:
+            warehouse.init_schema(c)
+            warehouse.insert_events(c, events)
+            findings = synthesis.synthesise(c, mock, detect=trades.detect, system=synthesis._SYSTEM_TRADES)
+        finally:
+            c.close()
+    unbilled = [f for f in findings if f.kind == "unbilled-completion"]
+    assert unbilled and unbilled[0].severity == 0.99, "the accepted model finding's severity should survive"
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns:

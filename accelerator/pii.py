@@ -26,7 +26,10 @@ _PII_RULES: list[tuple[str, re.Pattern]] = [
     ("phone", re.compile(r"(?<!\d)(?:\+?\d{1,3}[ .-]?)?(?:\(?\d{2,4}\)?[ .-]?){2,4}\d{2,4}(?!\d)")),
 ]
 
-_CARD_CANDIDATE = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
+# the digit separator allows whitespace (space, tab, newline) and hyphen, so a card
+# split across a newline inside a quoted multi-line CSV cell is still caught; _luhn
+# strips non-digits before validating, so the embedded newline does not break the check.
+_CARD_CANDIDATE = re.compile(r"(?<!\d)(?:\d[ \t\r\n-]?){13,19}(?!\d)")
 
 
 def _luhn(number: str) -> bool:

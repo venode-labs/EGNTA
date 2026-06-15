@@ -14,6 +14,15 @@ rather than pretend. Counting an unbuilt layer as "done" would be the dishonest 
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
+
+
+def _host_of(url: str) -> str:
+    """Hostname from a url, for the egress allowlist check. Empty string if there is none."""
+    try:
+        return urlparse(url).hostname or ""
+    except ValueError:
+        return ""
 
 # a read query starts with one of these...
 _READ_START = re.compile(r"^\s*(SELECT|WITH|EXPLAIN|VALUES)\b", re.IGNORECASE)
@@ -62,7 +71,16 @@ def read_only_tool_guard(tool_name: str, args: dict) -> tuple[str, str]:
             return "deny", str(e)
     if name in {"http", "fetch", "request", "curl"}:
         verb = str(args.get("method", "GET")).upper()
-        return ("allow", verb) if verb in _READ_HTTP else ("deny", f"write verb {verb}")
+        if verb not in _READ_HTTP:
+            return "deny", f"write verb {verb}"
+        # a read verb is not enough: a GET to cloud metadata (169.254.169.254) or an
+        # internal host is exfiltration. Compose the egress allowlist on the host too.
+        host = str(args.get("host", "")) or _host_of(str(args.get("url", "")))
+        try:
+            egress_allowlist_check(host, verb)
+        except ReadOnlyViolation as e:
+            return "deny", str(e)
+        return "allow", verb
     if name in {"read", "get_entity", "search_index", "list_events"}:
         return "allow", "read tool"
     return "deny", f"unknown tool {tool_name}, default-deny"

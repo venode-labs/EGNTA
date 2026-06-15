@@ -58,7 +58,10 @@ class Client:
         self.output_tokens = 0
 
     def complete(self, system: str, user: str, max_tokens: int = 2048,
-                 temperature: float = 0.2, retries: int = 3) -> str:
+                 temperature: float = 0.0, retries: int = 3) -> str:
+        # temperature 0 by default: the product leans on reproducibility, so the
+        # synthesis pass should be as stable as the model allows (not bit-exact across
+        # model versions, but no sampling jitter run to run).
         self.calls += 1
         if self.mock:
             return self.mock_reply
