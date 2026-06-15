@@ -15,9 +15,14 @@ from __future__ import annotations
 
 import re
 
-_WRITE_SQL = re.compile(r"^\s*(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE|ATTACH|PRAGMA\s+\w+\s*=)",
-                        re.IGNORECASE)
-_READ_SQL = re.compile(r"^\s*(SELECT|WITH|EXPLAIN|PRAGMA\s+\w+\s*\(|VALUES)", re.IGNORECASE)
+# a read query starts with one of these...
+_READ_START = re.compile(r"^\s*(SELECT|WITH|EXPLAIN|VALUES)\b", re.IGNORECASE)
+# ...and contains NONE of these write keywords anywhere (catches CTE-writes like
+# `WITH x AS (...) DELETE ...` and `EXPLAIN DELETE ...` that a start-anchored check
+# misses). PRAGMA is refused outright; the engine never needs a user-supplied one.
+_WRITE_WORD = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE|ATTACH|DETACH|VACUUM|REINDEX|PRAGMA)\b",
+    re.IGNORECASE)
 
 _READ_HTTP = {"GET", "HEAD", "OPTIONS"}
 
@@ -27,9 +32,18 @@ class ReadOnlyViolation(Exception):
 
 
 def assert_select_only(sql: str) -> None:
-    """Raise ReadOnlyViolation unless sql is a read. Enforced layer 1."""
-    if _WRITE_SQL.match(sql or "") or not _READ_SQL.match(sql or ""):
-        raise ReadOnlyViolation(f"non-read SQL refused: {sql[:60]!r}")
+    """Raise ReadOnlyViolation unless sql is a single read statement. Enforced layer 1.
+    Fail-closed: a read must start with SELECT/WITH/EXPLAIN/VALUES, carry no write
+    keyword anywhere, and be a single statement (no stacked `;`). A write keyword that
+    is really a column name or string literal is refused too, which is the safe error."""
+    s = (sql or "").strip()
+    body = s[:-1].rstrip() if s.endswith(";") else s   # tolerate one trailing semicolon
+    if ";" in body:
+        raise ReadOnlyViolation(f"stacked statements refused: {s[:60]!r}")
+    if not _READ_START.match(body):
+        raise ReadOnlyViolation(f"non-read SQL refused: {s[:60]!r}")
+    if _WRITE_WORD.search(body):
+        raise ReadOnlyViolation(f"write keyword in read query refused: {s[:60]!r}")
 
 
 def read_only_tool_guard(tool_name: str, args: dict) -> tuple[str, str]:

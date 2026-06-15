@@ -4,6 +4,32 @@ Dev lessons from building EGNTA itself. Distinct from `lessons/LESSONS.md`,
 which is EGNTA's learned rules about the Claude sessions it observes. Newest
 first.
 
+## 15/06/2026, a security control on the test path is not on the real path
+
+**What broke.** A line-by-line audit found the PII/credential scrubber was wired only
+into `bench/run.py` (the synthetic corpus) and the tests, never into the real connector
+ingest path. `report --csv` read a client export and inserted it with zero redaction, so
+a key or card in a notes column would reach the warehouse and the model prompt. Same
+audit found the read-only SQL guard bypassed by CTE-writes and stacked statements, the
+connector parsing naive timestamps in the host's local timezone (breaking the
+determinism claim on real CSVs) and accepting inf/nan timestamps, the grounding gate
+checking only that a citation resolved (not that it supported the finding's kind/key),
+and the metric giving duplicate findings a precision free-pass.
+
+**Root cause.** Controls were demonstrated on the eval/test path and assumed to cover the
+product path. The two paths diverged: the bench scrubs, the connector did not.
+
+**Fix.** Scrub inside the connector's `_to_event` (the real boundary); parse naive ISO as
+UTC and reject non-finite timestamps; replace the start-anchored SQL regex with a
+whole-statement write-keyword and stacked-`;` rejection; tighten the grounding gate so a
+finding must cite the exact `metric.<kind>.<key>` that supports it; dedup findings before
+scoring; clamp model scores against NaN/inf/out-of-range; utf-8-sig for Excel BOM; row
+cap and malformed-JSON rejection on the connector; graceful CLI error on a bad export.
+
+**Guard.** `tests/test_hardening.py` pins every one of these. The standing rule: a
+security or correctness control must be exercised on the PRODUCTION code path, not just
+the test/bench path; verify the real entry point calls it, not only the harness.
+
 ## 15/06/2026, "enforced" means on a live code path, not "implemented and tested"
 
 **What broke.** Wrote that the egress allowlist was an "enforced" read-only layer (3 of

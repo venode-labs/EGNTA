@@ -25,6 +25,18 @@ def _matches(f: Finding, a: AnswerItem) -> bool:
 
 
 def _prf(findings: list[Finding], answer: list[AnswerItem]) -> dict:
+    # dedup on (kind, key) first: a system that emits the same finding twice should be
+    # neither rewarded nor punished for the repeat. Without this, duplicates slipped
+    # through as zero-FP and inflated precision.
+    seen: set[tuple] = set()
+    deduped: list[Finding] = []
+    for f in findings:
+        sig = (f.kind.strip().lower(), f.key.strip().lower())
+        if sig in seen:
+            continue
+        seen.add(sig)
+        deduped.append(f)
+    findings = deduped
     matched: set[int] = set()
     fp = 0
     for f in findings:

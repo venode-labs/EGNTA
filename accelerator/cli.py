@@ -53,7 +53,11 @@ def main(argv=None) -> int:
         import tempfile  # noqa: PLC0415
         if args.csv:
             cmap = csv_export.ColumnMap(case_id=args.case_col, activity=args.activity_col, ts=args.ts_col)
-            events = csv_export.read_export(args.csv, cmap)
+            try:
+                events = csv_export.read_export(args.csv, cmap)
+            except (OSError, ValueError, KeyError) as e:
+                print(f"error reading {args.csv}: {e}", file=sys.stderr)
+                return 1
         else:
             from bench import generate_trades  # noqa: PLC0415
             events, _, _, _ = generate_trades.generate()

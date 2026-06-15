@@ -15,10 +15,17 @@ from __future__ import annotations
 import csv
 import json
 from datetime import datetime
+from datetime import timezone
 from pathlib import Path
 
+from .. import pii
 from ..model import Event
 from ..verticals import trades
+
+import math
+
+# a hostile or fat export should not OOM the process; cap rows ingested per file.
+MAX_ROWS = 5_000_000
 
 
 class ColumnMap:
@@ -36,27 +43,39 @@ class ColumnMap:
 
 
 def _parse_ts(raw) -> float:
-    """Epoch seconds from a numeric epoch or an ISO 8601 string. A row whose
-    timestamp will not parse raises, rather than ingesting a silent wrong time
-    that a later bottleneck reading would treat as real."""
+    """Epoch seconds from a numeric epoch or an ISO 8601 string. A naive ISO string
+    (no offset) is read as UTC so the same export gives the same epoch on any host,
+    the determinism the product claims. A timestamp that will not parse, or is not
+    finite, raises rather than ingesting a silent wrong time a bottleneck would trust."""
     if isinstance(raw, (int, float)):
-        return float(raw)
-    s = str(raw).strip()
-    try:
-        return float(s)
-    except ValueError:
-        pass
-    iso = s.replace("Z", "+00:00")
-    return datetime.fromisoformat(iso).timestamp()
+        val = float(raw)
+    else:
+        s = str(raw).strip()
+        try:
+            val = float(s)
+        except ValueError:
+            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            val = dt.timestamp()
+    if not math.isfinite(val):
+        raise ValueError(f"non-finite timestamp: {raw!r}")
+    return val
 
 
 def _to_event(row: dict, cmap: ColumnMap, normalise) -> Event | None:
     case_id = str(row.get(cmap.case_id, "")).strip()
     raw_activity = str(row.get(cmap.activity, "")).strip()
-    if not case_id or not raw_activity:
-        return None  # a row with no case or no status is not an event
-    ts = _parse_ts(row[cmap.ts])
+    ts_raw = row.get(cmap.ts)
+    # a row with no case, no status, or no timestamp is not an event; skip, do not crash
+    if not case_id or not raw_activity or ts_raw in (None, ""):
+        return None
+    ts = _parse_ts(ts_raw)
+    # scrub free text at the connector boundary, this is the real ingest path; a
+    # credential or card in a client's notes column must never reach the warehouse
     resource = str(row.get(cmap.resource, "")) if cmap.resource else ""
+    if resource:
+        resource, _ = pii.scrub(resource)
     if cmap.entity_fqn and row.get(cmap.entity_fqn):
         fqn = str(row[cmap.entity_fqn]).strip()
     else:
@@ -65,11 +84,14 @@ def _to_event(row: dict, cmap: ColumnMap, normalise) -> Event | None:
 
 
 def read_csv(path, cmap: ColumnMap, normalise=trades.canonical_activity) -> list[Event]:
-    """Read a CSV export into canonical events. Rows missing a case or status are
-    skipped; a malformed timestamp raises."""
+    """Read a CSV export into canonical events. Rows missing a case, status or
+    timestamp are skipped; a malformed timestamp raises. utf-8-sig strips the BOM
+    Excel writes, which would otherwise glue to the first header and drop every row."""
     events: list[Event] = []
-    with Path(path).open(newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
+    with Path(path).open(newline="", encoding="utf-8-sig") as fh:
+        for i, row in enumerate(csv.DictReader(fh)):
+            if i >= MAX_ROWS:
+                raise ValueError(f"export exceeds {MAX_ROWS} rows; refusing to ingest unbounded")
             ev = _to_event(row, cmap, normalise)
             if ev is not None:
                 events.append(ev)
@@ -78,11 +100,17 @@ def read_csv(path, cmap: ColumnMap, normalise=trades.canonical_activity) -> list
 
 def read_json(path, cmap: ColumnMap, normalise=trades.canonical_activity) -> list[Event]:
     """Read a JSON export (a list of row objects, or an object with a 'rows' list)."""
-    with Path(path).open(encoding="utf-8") as fh:
+    with Path(path).open(encoding="utf-8-sig") as fh:
         data = json.load(fh)
-    rows = data["rows"] if isinstance(data, dict) and "rows" in data else data
+    rows = data.get("rows") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        raise ValueError("JSON export must be a list of rows or an object with a 'rows' list")
+    if len(rows) > MAX_ROWS:
+        raise ValueError(f"export exceeds {MAX_ROWS} rows; refusing to ingest unbounded")
     events: list[Event] = []
     for row in rows:
+        if not isinstance(row, dict):
+            continue  # skip a non-object row rather than crash on it
         ev = _to_event(row, cmap, normalise)
         if ev is not None:
             events.append(ev)

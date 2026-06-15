@@ -75,10 +75,25 @@ Return ONLY JSON:
   "evidence_fqn":str,"recommendation":str}]}"""
 
 
+def _clamp01(v) -> float:
+    """Model-supplied score into [0,1]; NaN, inf or non-numeric collapse to 0.5 so a
+    bad completion cannot poison the pain-register sort with a NaN or out-of-range score."""
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return 0.5
+    if x != x or x in (float("inf"), float("-inf")):
+        return 0.5
+    return min(1.0, max(0.0, x))
+
+
+_MAX_FACTS = 200   # cap how many mined metrics flow into the prompt, bounds input cost
+
+
 def _facts(metrics: list[tuple]) -> str:
     return json.dumps([
         {"evidence_fqn": fqn, "name": name, "value": value, "detail": evidence}
-        for (fqn, name, value, evidence) in metrics
+        for (fqn, name, value, evidence) in metrics[:_MAX_FACTS]
     ], indent=2)
 
 
@@ -110,18 +125,18 @@ def synthesise(conn, llm, detect=pain.detect, system=_SYSTEM) -> list[Finding]:
 
     findings: list[Finding] = []
     for f in raw:
+        kind, key = str(f.get("kind", "")), str(f.get("key", ""))
         fqn = str(f.get("evidence_fqn", ""))
-        if not warehouse.citation_resolves(conn, fqn):
-            continue  # ungrounded, drop
-        try:
-            findings.append(Finding(
-                kind=str(f.get("kind", "")), title=str(f.get("title", ""))[:200],
-                key=str(f.get("key", "")),
-                severity=float(f.get("severity", 0.5)), frequency=float(f.get("frequency", 0.5)),
-                fixability=float(f.get("fixability", 0.5)), evidence_fqn=fqn,
-            ))
-        except (TypeError, ValueError):
+        # tightened grounding: the citation must be the exact mined metric that supports
+        # THIS finding's (kind, key), and it must resolve. A real but unrelated citation
+        # (a benign entity id the model attached to a fabricated claim) no longer passes.
+        if fqn != f"metric.{kind}.{key}" or not warehouse.citation_resolves(conn, fqn):
             continue
+        findings.append(Finding(
+            kind=kind, title=str(f.get("title", ""))[:200], key=key,
+            severity=_clamp01(f.get("severity")), frequency=_clamp01(f.get("frequency")),
+            fixability=_clamp01(f.get("fixability")), evidence_fqn=fqn,
+        ))
 
     # safety net: if the model dropped a material defect it was handed, fall back to
     # the deterministic finding for that metric so grounded recall is never worse

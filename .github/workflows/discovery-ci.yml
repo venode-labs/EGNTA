@@ -24,10 +24,14 @@ jobs:
       - run: pip install pytest
       - name: unit + engine + bench tests
         run: python -m pytest tests/ -q
-      - name: graded benchmark (fails if the planted secret ever leaks)
+      - name: graded benchmark, quote-to-cash (fails if the planted secret ever leaks)
         run: python -m bench.run
+      - name: graded benchmark, trades vertical (held-out keeps it honest)
+        run: python -m bench.run --vertical trades
       - name: cli smoke
-        run: python -m accelerator version
+        run: |
+          python -m accelerator version
+          python -m accelerator report --vertical trades
 
   # Proves the container builds and runs (any cloud / any host with a container runtime).
   container:
@@ -35,6 +39,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: build image
-        run: docker build -t egenta:ci .
+        run: docker build -t egnta:ci .
       - name: run container
-        run: docker run --rm egenta:ci version
+        run: docker run --rm egnta:ci version

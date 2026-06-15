@@ -35,6 +35,14 @@ def _band(severity: float) -> str:
     return "Low"
 
 
+def _cell(s) -> str:
+    """Neutralise a value before it goes into the report: escape the markdown pipe so a
+    title cannot break the table, and prefix a leading spreadsheet-formula character so a
+    hostile export value (=cmd, +, -, @) cannot execute if the report is opened in Excel."""
+    out = str(s).replace("|", r"\|").replace("\n", " ").replace("\r", " ")
+    return "'" + out if out[:1] in ("=", "+", "-", "@", "\t") else out
+
+
 def render(findings: list[Finding], vertical: str = "trades") -> str:
     """A prioritised markdown pain register. Empty findings render an explicit
     'no material findings' line rather than a blank report."""
@@ -46,11 +54,11 @@ def render(findings: list[Finding], vertical: str = "trades") -> str:
     lines += [f"{len(ordered)} findings, ordered by impact (frequency x severity x fixability).", "",
               "| # | Priority | Finding | Score |", "|---|---|---|---|"]
     for i, f in enumerate(ordered, 1):
-        lines.append(f"| {i} | {_band(f.severity)} | {f.title} | {f.score} |")
+        lines.append(f"| {i} | {_band(f.severity)} | {_cell(f.title)} | {f.score} |")
     lines.append("")
     for i, f in enumerate(ordered, 1):
         rec = _PLAYBOOK.get(f.kind, "Review with the operator and agree a remediation.")
-        lines += [f"### {i}. {f.title}",
+        lines += [f"### {i}. {_cell(f.title)}",
                   f"- Priority: {_band(f.severity)} (severity {f.severity}, frequency {f.frequency})",
                   f"- Evidence: `{f.evidence_fqn}`",
                   f"- Recommendation: {rec}", ""]

@@ -18,6 +18,7 @@ import urllib.request
 
 _HOST = "https://api.anthropic.com/v1/messages"
 _VERSION = "2023-06-01"
+_MAX_RESP = 8 * 1024 * 1024   # 8 MiB ceiling on a response body; a 2048-token reply is tiny
 DEFAULT_MODEL = "claude-sonnet-4-6"
 SYNTH_MODEL = "claude-opus-4-8"   # final synthesis pass only
 
@@ -75,11 +76,18 @@ class Client:
             "anthropic-version": _VERSION,
             "content-type": "application/json",
         })
+        # the URL is the pinned _HOST https constant in the Request, never user-derived,
+        # so the dynamic-urllib file:// scheme risk does not apply here.
+        if not _HOST.startswith("https://"):  # defence in depth: refuse a non-https host
+            raise RuntimeError("model host must be https")
         last = None
         for attempt in range(retries):
             try:
-                with urllib.request.urlopen(req, timeout=120) as resp:
-                    data = json.loads(resp.read())
+                with urllib.request.urlopen(req, timeout=120) as resp:  # nosemgrep: dynamic-urllib-use-detected
+                    raw = resp.read(_MAX_RESP + 1)
+                if len(raw) > _MAX_RESP:
+                    raise RuntimeError("anthropic response exceeded the size cap")
+                data = json.loads(raw)
                 usage = data.get("usage", {})
                 self.input_tokens += usage.get("input_tokens", 0)
                 self.output_tokens += usage.get("output_tokens", 0)
@@ -88,7 +96,11 @@ class Client:
             except urllib.error.HTTPError as e:
                 last = e
                 if e.code in (429, 500, 502, 503, 529) and attempt < retries - 1:
-                    time.sleep(2 ** attempt)
+                    delay = 2 ** attempt
+                    ra = e.headers.get("retry-after") if e.headers else None  # honour server cooldown
+                    if ra and str(ra).isdigit():
+                        delay = min(int(ra), 60)
+                    time.sleep(delay)
                     continue
                 raise
             except urllib.error.URLError as e:
